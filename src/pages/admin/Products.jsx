@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   Card,
@@ -25,53 +25,71 @@ import {
   DeleteOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { mockProducts, mockCategories, mockUnits } from '../../services/mockData';
+import productService from '../../services/productService';
+import categoryService from '../../services/categoryService';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 const Products = () => {
-  const [products, setProducts] = useState([...mockProducts]);
-  const [filteredProducts, setFilteredProducts] = useState([...mockProducts]);
+  const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [searchText, setSearchText] = useState('');
   const [imageFileList, setImageFileList] = useState([]);
   const [form] = Form.useForm();
 
+  // Fetch products and categories on mount
+  useEffect(() => {
+    fetchCategories();
+    fetchProducts();
+  }, []);
+
+  // Fetch categories from API
+  const fetchCategories = async () => {
+    try {
+      const response = await categoryService.getAll({ is_active: true });
+      setCategories(response.data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  // Fetch products from API
+  const fetchProducts = async (params = {}) => {
+    setLoading(true);
+    try {
+      const response = await productService.getAll(params);
+      const data = response.data || [];
+      setProducts(data);
+      setFilteredProducts(data);
+    } catch (error) {
+      message.error(error.message || 'Không thể tải danh sách sản phẩm');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Search handler
   const handleSearch = (value) => {
-    let filtered = products;
-
-    // Filter by search text
-    if (value) {
-      filtered = filtered.filter(
-        (prod) =>
-          prod.name.toLowerCase().includes(value.toLowerCase()) ||
-          prod.sku.toLowerCase().includes(value.toLowerCase()) ||
-          prod.description.toLowerCase().includes(value.toLowerCase())
-      );
-    }
-
-    // Filter by category
-    if (selectedCategory) {
-      filtered = filtered.filter((prod) => prod.categoryId === selectedCategory);
-    }
-
-    setFilteredProducts(filtered);
+    setSearchText(value);
+    const params = {};
+    if (value) params.search = value;
+    if (selectedCategory) params.category_id = selectedCategory;
+    fetchProducts(params);
   };
 
   // Category filter handler
   const handleCategoryFilter = (categoryId) => {
     setSelectedCategory(categoryId);
-    let filtered = products;
-
-    if (categoryId) {
-      filtered = filtered.filter((prod) => prod.categoryId === categoryId);
-    }
-
-    setFilteredProducts(filtered);
+    const params = {};
+    if (searchText) params.search = searchText;
+    if (categoryId) params.category_id = categoryId;
+    fetchProducts(params);
   };
 
   // Handle image upload
@@ -89,7 +107,9 @@ const Products = () => {
     
     if (fileList.length > 0 && fileList[0].originFileObj) {
       const base64 = await getBase64(fileList[0].originFileObj);
-      form.setFieldsValue({ mainImage: base64 });
+      form.setFieldsValue({ image_url: base64 });
+    } else if (fileList.length === 0) {
+      form.setFieldsValue({ image_url: '' });
     }
   };
 
@@ -98,12 +118,12 @@ const Products = () => {
     setEditingProduct(product);
     
     // Reset image file list
-    if (product && product.mainImage) {
+    if (product && product.image_url) {
       setImageFileList([{
         uid: '-1',
         name: 'image.png',
         status: 'done',
-        url: product.mainImage,
+        url: product.image_url,
       }]);
     } else {
       setImageFileList([]);
@@ -111,28 +131,17 @@ const Products = () => {
     if (product) {
       form.setFieldsValue({
         name: product.name,
-        sku: product.sku,
         description: product.description,
-        categoryId: product.categoryId,
-        taxRate: product.taxRate || 0,
-        costPrice: product.costPrice,
-        stock: product.stock,
-        lowStockThreshold: product.lowStockThreshold,
-        mainImage: product.mainImage,
-        images: product.images,
-        isActive: product.isActive,
-        tags: product.tags,
-        specifications: Object.entries(product.specifications || {}).map(([key, value]) => ({
-          key,
-          value,
-        })),
+        category_id: product.category_id?._id || product.category_id,
+        tax_rate: product.tax_rate || 0,
+        image_url: product.image_url,
+        is_active: product.is_active,
       });
     } else {
       form.resetFields();
       form.setFieldsValue({
-        isActive: true,
-        stock: 0,
-        lowStockThreshold: 10,
+        is_active: true,
+        tax_rate: 0,
       });
     }
     setDrawerVisible(true);
@@ -152,70 +161,44 @@ const Products = () => {
       const values = await form.validateFields();
       setLoading(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      console.log('Form values:', values);
+      console.log('is_active value:', values.is_active, typeof values.is_active);
 
-      // Convert specifications array back to object
-      const specifications = {};
-      if (values.specifications) {
-        values.specifications.forEach((spec) => {
-          if (spec.key && spec.value) {
-            specifications[spec.key] = spec.value;
-          }
-        });
+      // Get image_url - nếu là object thì lấy từ imageFileList, nếu là string thì giữ nguyên
+      let imageUrl = values.image_url;
+      if (typeof imageUrl !== 'string' && imageFileList.length > 0) {
+        if (imageFileList[0].originFileObj) {
+          imageUrl = await getBase64(imageFileList[0].originFileObj);
+        } else if (imageFileList[0].url) {
+          imageUrl = imageFileList[0].url;
+        }
       }
 
-      // Get category name
-      const category = mockCategories.find((cat) => cat.id === values.categoryId);
+      const productData = {
+        name: values.name,
+        description: values.description,
+        category_id: values.category_id,
+        tax_rate: values.tax_rate || 0,
+        image_url: imageUrl || '',
+        is_active: values.is_active ?? true,
+      };
 
-      // Determine stock status
-      let stockStatus = 'in_stock';
-      if (values.stock === 0) stockStatus = 'out_of_stock';
-      else if (values.stock <= values.lowStockThreshold) stockStatus = 'low_stock';
+      console.log('Product data to send:', productData);
 
       if (editingProduct) {
         // Update existing product
-        const updatedProducts = products.map((prod) =>
-          prod.id === editingProduct.id
-            ? {
-                ...prod,
-                ...values,
-                categoryName: category?.name || '',
-                specifications,
-                stockStatus,
-                images: values.images || [values.mainImage],
-                updatedAt: new Date().toISOString(),
-              }
-            : prod
-        );
-        setProducts(updatedProducts);
-        setFilteredProducts(updatedProducts);
-        message.success('Product updated successfully!');
+        await productService.update(editingProduct._id, productData);
+        message.success('Cập nhật sản phẩm thành công!');
       } else {
         // Add new product
-        const newProduct = {
-          id: Math.max(...products.map((p) => p.id)) + 1,
-          ...values,
-          categoryName: category?.name || '',
-          specifications,
-          stockStatus,
-          images: values.images || [values.mainImage],
-          soldCount: 0,
-          viewCount: 0,
-          rating: 0,
-          reviewCount: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        const updatedProducts = [...products, newProduct];
-        setProducts(updatedProducts);
-        setFilteredProducts(updatedProducts);
-        message.success('Product created successfully!');
+        await productService.create(productData);
+        message.success('Tạo sản phẩm thành công!');
       }
 
       handleCloseDrawer();
-    } catch {
-      // Validation failed
+      fetchProducts();
+    } catch (error) {
+      message.error(error.message || 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -225,15 +208,11 @@ const Products = () => {
   const handleDelete = async (id) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const updatedProducts = products.filter((prod) => prod.id !== id);
-      setProducts(updatedProducts);
-      setFilteredProducts(updatedProducts);
-      message.success('Product deleted successfully!');
-    } catch {
-      message.error('Failed to delete product');
+      await productService.delete(id);
+      message.success('Xóa sản phẩm thành công!');
+      fetchProducts();
+    } catch (error) {
+      message.error(error.message || 'Không thể xóa sản phẩm');
     } finally {
       setLoading(false);
     }
@@ -256,101 +235,55 @@ const Products = () => {
   // Table columns
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 60,
-      sorter: (a, b) => a.id - b.id,
-    },
-    {
-      title: 'Image',
-      dataIndex: 'mainImage',
-      key: 'mainImage',
+      title: 'Hình ảnh',
+      dataIndex: 'image_url',
+      key: 'image_url',
       width: 80,
       render: (url) => (
-        <img
+        url ? <img
           src={url}
           alt="Product"
           style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4 }}
-        />
+        /> : '-'
       ),
     },
     {
-      title: 'Product Name',
+      title: 'Tên sản phẩm',
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (text, record) => (
-        <Space direction="vertical" size={0}>
-          <strong>{text}</strong>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            SKU: {record.sku}
-          </Text>
-        </Space>
-      ),
     },
     {
-      title: 'Category',
-      dataIndex: 'categoryName',
-      key: 'categoryName',
-      filters: mockCategories.map((cat) => ({ text: cat.name, value: cat.name })),
-      onFilter: (value, record) => record.categoryName === value,
+      title: 'Danh mục',
+      dataIndex: 'category_id',
+      key: 'category_id',
+      render: (category) => category?.name || '-',
     },
     {
-      title: 'Tax Rate',
-      dataIndex: 'taxRate',
-      key: 'taxRate',
+      title: 'Thuế (%)',
+      dataIndex: 'tax_rate',
+      key: 'tax_rate',
       width: 100,
-      sorter: (a, b) => (a.taxRate || 0) - (b.taxRate || 0),
       render: (taxRate) => `${(taxRate || 0).toFixed(1)}%`,
     },
     {
-      title: 'Unit Types',
-      key: 'unitCount',
-      width: 100,
-      render: (_, record) => {
-        const unitCount = mockUnits.filter(u => u.productId === record.id).length;
-        return (
-          <Tag color="blue">{unitCount}</Tag>
-        );
-      },
-    },
-    {
-      title: 'Total Stock',
-      dataIndex: 'stock',
-      key: 'stock',
-      sorter: (a, b) => a.stock - b.stock,
-      render: (stock, record) => (
-        <Space direction="vertical" size={0}>
-          <strong>{stock}</strong>
-          <Tag color={getStockStatusColor(record.stockStatus)} style={{ fontSize: '11px' }}>
-            {record.stockStatus.replace('_', ' ').toUpperCase()}
-          </Tag>
-        </Space>
-      ),
-    },
-    {
-      title: 'Active Status',
-      dataIndex: 'isActive',
-      key: 'isActive',
-      filters: [
-        { text: 'Active', value: true },
-        { text: 'Inactive', value: false },
-      ],
-      onFilter: (value, record) => record.isActive === value,
+      title: 'Trạng thái',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 120,
       render: (isActive) => (
         <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
+          {isActive ? 'Hoạt động' : 'Ngừng'}
         </Tag>
       ),
     },
     {
-      title: 'Actions',
+      title: 'Thao tác',
       key: 'actions',
-      width: 80,
+      width: 100,
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Edit">
+          <Tooltip title="Sửa">
             <Button
               type="link"
               icon={<EditOutlined />}
@@ -358,13 +291,13 @@ const Products = () => {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete Product"
-            description="Are you sure you want to delete this product?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
+            title="Xóa sản phẩm"
+            description="Bạn có chắc chắn muốn xóa sản phẩm này?"
+            onConfirm={() => handleDelete(record._id)}
+            okText="Có"
+            cancelText="Không"
           >
-            <Tooltip title="Delete">
+            <Tooltip title="Xóa">
               <Button type="link" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
@@ -373,91 +306,81 @@ const Products = () => {
     },
   ];
 
-  // Drawer tabs
-  const drawerTabs = [
-    {
-      key: 'general',
-      label: 'General Info',
-      children: (
-        <>
+  // Drawer form content
+  const drawerFormContent = (
+    <>
+      <Form.Item
+        name="name"
+        label="Tên sản phẩm"
+        rules={[{ required: true, message: 'Vui lòng nhập tên sản phẩm' }]}
+      >
+        <Input placeholder="Nhập tên sản phẩm" />
+      </Form.Item>
+
+      <Form.Item
+        name="description"
+        label="Mô tả"
+      >
+        <TextArea rows={3} placeholder="Nhập mô tả sản phẩm" />
+      </Form.Item>
+
+      <Row gutter={16}>
+        <Col span={12}>
           <Form.Item
-            name="name"
-            label="Product Name"
-            rules={[{ required: true, message: 'Please enter product name' }]}
+            name="category_id"
+            label="Danh mục"
+            rules={[{ required: true, message: 'Vui lòng chọn danh mục' }]}
           >
-            <Input placeholder="Enter product name" />
+            <Select
+              placeholder="Chọn danh mục"
+              options={categories.map((cat) => ({
+                label: cat.name,
+                value: cat._id,
+              }))}
+            />
           </Form.Item>
-
+        </Col>
+        <Col span={12}>
           <Form.Item
-            name="description"
-            label="Description"
-            rules={[{ required: true, message: 'Please enter description' }]}
+            name="tax_rate"
+            label="Thuế (%)"
           >
-            <TextArea rows={3} placeholder="Enter product description" />
+            <InputNumber
+              placeholder="0.0"
+              min={0}
+              max={100}
+              step={0.1}
+              style={{ width: '100%' }}
+            />
           </Form.Item>
+        </Col>
+      </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="categoryId"
-                label="Category"
-                rules={[{ required: true, message: 'Please select category' }]}
-              >
-                <Select
-                  placeholder="Select category"
-                  options={mockCategories.map((cat) => ({
-                    label: cat.name,
-                    value: cat.id,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="taxRate"
-                label="Tax Rate (%)"
-                rules={[{ required: true, message: 'Please enter tax rate' }]}
-              >
-                <InputNumber
-                  placeholder="0.0"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  suffix="%"
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+      <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
+        <Switch checkedChildren="Hoạt động" unCheckedChildren="Ngừng" />
+      </Form.Item>
 
-          <Form.Item name="isActive" label="Active Status" valuePropName="checked">
-            <Switch checkedChildren="Yes" unCheckedChildren="No" />
-          </Form.Item>
-
-          <Form.Item
-            name="mainImage"
-            label="Main Image"
-            rules={[{ required: true, message: 'Please upload image' }]}
-          >
-            <Upload
-              listType="picture-card"
-              fileList={imageFileList}
-              onChange={handleImageChange}
-              beforeUpload={() => false}
-              maxCount={1}
-            >
-              {imageFileList.length === 0 && (
-                <div>
-                  <PlusOutlined />
-                  <div style={{ marginTop: 8 }}>Upload</div>
-                </div>
-              )}
-            </Upload>
-          </Form.Item>
-        </>
-      ),
-    },
-  ];
+      <Form.Item
+        name="image_url"
+        label="Hình ảnh"
+      >
+        <Upload
+          listType="picture-card"
+          fileList={imageFileList}
+          onChange={handleImageChange}
+          beforeUpload={() => false}
+          maxCount={1}
+        >
+          {imageFileList.length === 0 && (
+            <div>
+              <PlusOutlined />
+              <div style={{ marginTop: 8 }}>Upload</div>
+            </div>
+          )}
+        </Upload>
+      </Form.Item>
+    </>
+  );
 
   return (
     <div>
@@ -465,35 +388,35 @@ const Products = () => {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Title level={3} style={{ margin: 0 }}>
-              Product Management
+              Quản lý sản phẩm
             </Title>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => handleOpenDrawer()}
             >
-              Add Product
+              Thêm sản phẩm
             </Button>
           </div>
 
           <Space size="middle" style={{ width: '100%', flexWrap: 'wrap' }}>
             <Input
-              placeholder="Search products by name, SKU, or description..."
+              placeholder="Tìm kiếm theo tên hoặc mô tả..."
               prefix={<SearchOutlined />}
               onChange={(e) => handleSearch(e.target.value)}
               allowClear
               style={{ width: 400 }}
             />
             <Select
-              placeholder="Filter by category"
+              placeholder="Lọc theo danh mục"
               style={{ width: 200 }}
               allowClear
               onChange={handleCategoryFilter}
               options={[
-                { label: 'All Categories', value: null },
-                ...mockCategories.map((cat) => ({
+                { label: 'Tất cả danh mục', value: null },
+                ...categories.map((cat) => ({
                   label: cat.name,
-                  value: cat.id,
+                  value: cat._id,
                 })),
               ]}
             />
@@ -502,33 +425,33 @@ const Products = () => {
           <Table
             columns={columns}
             dataSource={filteredProducts}
-            rowKey="id"
+            rowKey="_id"
             loading={loading}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
-              showTotal: (total) => `Total ${total} products`,
+              showTotal: (total) => `Tổng ${total} sản phẩm`,
             }}
           />
         </Space>
       </Card>
 
       <Drawer
-        title={editingProduct ? 'Edit Product' : 'Add New Product'}
+        title={editingProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}
         open={drawerVisible}
         onClose={handleCloseDrawer}
         width={720}
         extra={
           <Space>
-            <Button onClick={handleCloseDrawer}>Cancel</Button>
+            <Button onClick={handleCloseDrawer}>Hủy</Button>
             <Button type="primary" onClick={handleSave} loading={loading}>
-              Save
+              {editingProduct ? 'Cập nhật' : 'Tạo mới'}
             </Button>
           </Space>
         }
       >
         <Form form={form} layout="vertical">
-          {drawerTabs[0].children}
+          {drawerFormContent}
         </Form>
       </Drawer>
     </div>

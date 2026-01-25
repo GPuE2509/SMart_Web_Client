@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   Card,
@@ -24,19 +24,43 @@ import {
   DeleteOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
-import { mockCategories } from '../../services/mockData';
+import categoryService from '../../services/categoryService';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 
 const Categories = () => {
-  const [categories, setCategories] = useState([...mockCategories]);
-  const [filteredCategories, setFilteredCategories] = useState([...mockCategories]);
+  const [categories, setCategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [imageFileList, setImageFileList] = useState([]);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  // Fetch categories from API
+  const fetchCategories = async (search = '') => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (search) params.search = search;
+      
+      const response = await categoryService.getAll(params);
+      const data = response.data || [];
+      setCategories(data);
+      setFilteredCategories(data);
+    } catch (error) {
+      message.error(error.message || 'Không thể tải danh sách danh mục');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handle image upload
   const getBase64 = (file) => {
@@ -53,18 +77,16 @@ const Categories = () => {
     
     if (fileList.length > 0 && fileList[0].originFileObj) {
       const base64 = await getBase64(fileList[0].originFileObj);
-      form.setFieldsValue({ imageUrl: base64 });
+      form.setFieldsValue({ image_url: base64 });
+    } else if (fileList.length === 0) {
+      form.setFieldsValue({ image_url: '' });
     }
   };
 
   // Search handler
   const handleSearch = (value) => {
-    const filtered = categories.filter(
-      (cat) =>
-        cat.name.toLowerCase().includes(value.toLowerCase()) ||
-        cat.description.toLowerCase().includes(value.toLowerCase())
-    );
-    setFilteredCategories(filtered);
+    setSearchText(value);
+    fetchCategories(value);
   };
 
   // Open drawer for add/edit
@@ -74,26 +96,25 @@ const Categories = () => {
       form.setFieldsValue({
         name: category.name,
         description: category.description,
-        slug: category.slug,
-        parentId: category.parentId,
-        imageUrl: category.imageUrl,
-        isActive: category.isActive,
+        parent_id: category.parent_id,
+        image_url: category.image_url,
+        is_active: category.is_active,
       });
       
       // Set image file list
-      if (category.imageUrl) {
+      if (category.image_url) {
         setImageFileList([{
           uid: '-1',
           name: 'image.png',
           status: 'done',
-          url: category.imageUrl,
+          url: category.image_url,
         }]);
       } else {
         setImageFileList([]);
       }
     } else {
       form.resetFields();
-      form.setFieldsValue({ isActive: true });
+      form.setFieldsValue({ is_active: true });
       setImageFileList([]);
     }
     setDrawerVisible(true);
@@ -113,44 +134,38 @@ const Categories = () => {
       const values = await form.validateFields();
       setLoading(true);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Get image_url - nếu là object thì lấy từ imageFileList, nếu là string thì giữ nguyên
+      let imageUrl = values.image_url;
+      if (typeof imageUrl !== 'string' && imageFileList.length > 0) {
+        if (imageFileList[0].originFileObj) {
+          imageUrl = await getBase64(imageFileList[0].originFileObj);
+        } else if (imageFileList[0].url) {
+          imageUrl = imageFileList[0].url;
+        }
+      }
+
+      const categoryData = {
+        name: values.name,
+        description: values.description,
+        parent_id: values.parent_id || null,
+        image_url: imageUrl || '',
+        is_active: values.is_active ?? true,
+      };
 
       if (editingCategory) {
         // Update existing category
-        const updatedCategories = categories.map((cat) =>
-          cat.id === editingCategory.id
-            ? {
-                ...cat,
-                ...values,
-                slug: values.name.toLowerCase().replace(/\s+/g, '-'),
-                updatedAt: new Date().toISOString(),
-              }
-            : cat
-        );
-        setCategories(updatedCategories);
-        setFilteredCategories(updatedCategories);
-        message.success('Category updated successfully!');
+        await categoryService.update(editingCategory._id, categoryData);
+        message.success('Cập nhật danh mục thành công!');
       } else {
         // Add new category
-        const newCategory = {
-          id: Math.max(...categories.map((c) => c.id)) + 1,
-          ...values,
-          slug: values.name.toLowerCase().replace(/\s+/g, '-'),
-          productCount: 0,
-          isActive: values.isActive ?? true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        const updatedCategories = [...categories, newCategory];
-        setCategories(updatedCategories);
-        setFilteredCategories(updatedCategories);
-        message.success('Category created successfully!');
+        await categoryService.create(categoryData);
+        message.success('Tạo danh mục thành công!');
       }
 
       handleCloseDrawer();
-    } catch {
-      // Validation failed
+      fetchCategories(searchText);
+    } catch (error) {
+      message.error(error.message || 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -160,15 +175,11 @@ const Categories = () => {
   const handleDelete = async (id) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const updatedCategories = categories.filter((cat) => cat.id !== id);
-      setCategories(updatedCategories);
-      setFilteredCategories(updatedCategories);
-      message.success('Category deleted successfully!');
-    } catch {
-      message.error('Failed to delete category');
+      await categoryService.delete(id);
+      message.success('Xóa danh mục thành công!');
+      fetchCategories(searchText);
+    } catch (error) {
+      message.error(error.message || 'Không thể xóa danh mục');
     } finally {
       setLoading(false);
     }
@@ -177,97 +188,61 @@ const Categories = () => {
   // Get parent category name
   const getParentName = (parentId) => {
     if (!parentId) return '-';
-    const parent = categories.find((cat) => cat.id === parentId);
+    const parent = categories.find((cat) => cat._id === parentId);
     return parent ? parent.name : '-';
   };
 
   // Table columns
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      sorter: (a, b) => a.id - b.id,
-    },
-    {
-      title: 'Image',
-      dataIndex: 'imageUrl',
-      key: 'imageUrl',
+      title: 'Hình ảnh',
+      dataIndex: 'image_url',
+      key: 'image_url',
       width: 80,
       render: (url) => (
-        <img
+        url ? <img
           src={url}
           alt="Category"
           style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 4 }}
-        />
+        /> : '-'
       ),
     },
     {
-      title: 'Name',
+      title: 'Tên danh mục',
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (text, record) => (
-        <Space direction="vertical" size={0}>
-          <strong>{text}</strong>
-          <span style={{ fontSize: '12px', color: '#999' }}>{record.slug}</span>
-        </Space>
-      ),
     },
     {
-      title: 'Description',
+      title: 'Mô tả',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
     },
     {
-      title: 'Parent Category',
-      dataIndex: 'parentId',
-      key: 'parentId',
+      title: 'Danh mục cha',
+      dataIndex: 'parent_id',
+      key: 'parent_id',
       render: (parentId) => getParentName(parentId),
-      filters: [
-        { text: 'Root Categories', value: null },
-        ...categories
-          .filter((cat) => cat.parentId === null)
-          .map((cat) => ({ text: cat.name, value: cat.id })),
-      ],
-      onFilter: (value, record) => {
-        if (value === null) return record.parentId === null;
-        return record.parentId === value;
-      },
     },
     {
-      title: 'Products',
-      dataIndex: 'productCount',
-      key: 'productCount',
-      width: 100,
-      sorter: (a, b) => a.productCount - b.productCount,
-      render: (count) => <Tag color="blue">{count}</Tag>,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'isActive',
-      key: 'isActive',
-      width: 100,
-      filters: [
-        { text: 'Active', value: true },
-        { text: 'Inactive', value: false },
-      ],
-      onFilter: (value, record) => record.isActive === value,
+      title: 'Trạng thái',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 120,
       render: (isActive) => (
         <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
+          {isActive ? 'Hoạt động' : 'Ngừng'}
         </Tag>
       ),
     },
     {
-      title: 'Actions',
+      title: 'Thao tác',
       key: 'actions',
-      width: 80,
+      width: 100,
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Edit">
+          <Tooltip title="Sửa">
             <Button
               type="link"
               icon={<EditOutlined />}
@@ -275,13 +250,13 @@ const Categories = () => {
             />
           </Tooltip>
           <Popconfirm
-            title="Delete Category"
-            description="Are you sure you want to delete this category?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
+            title="Xóa danh mục"
+            description="Bạn có chắc chắn muốn xóa danh mục này?"
+            onConfirm={() => handleDelete(record._id)}
+            okText="Có"
+            cancelText="Không"
           >
-            <Tooltip title="Delete">
+            <Tooltip title="Xóa">
               <Button type="link" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
@@ -296,19 +271,19 @@ const Categories = () => {
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Title level={3} style={{ margin: 0 }}>
-              Category Management
+              Quản lý danh mục
             </Title>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => handleOpenDrawer()}
             >
-              Add Category
+              Thêm danh mục
             </Button>
           </div>
 
           <Input
-            placeholder="Search categories by name or description..."
+            placeholder="Tìm kiếm theo tên hoặc mô tả..."
             prefix={<SearchOutlined />}
             onChange={(e) => handleSearch(e.target.value)}
             allowClear
@@ -318,27 +293,27 @@ const Categories = () => {
           <Table
             columns={columns}
             dataSource={filteredCategories}
-            rowKey="id"
+            rowKey="_id"
             loading={loading}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
-              showTotal: (total) => `Total ${total} categories`,
+              showTotal: (total) => `Tổng ${total} danh mục`,
             }}
           />
         </Space>
       </Card>
 
       <Drawer
-        title={editingCategory ? 'Edit Category' : 'Add New Category'}
+        title={editingCategory ? 'Sửa danh mục' : 'Thêm danh mục mới'}
         open={drawerVisible}
         onClose={handleCloseDrawer}
         width={600}
         extra={
           <Space>
-            <Button onClick={handleCloseDrawer}>Cancel</Button>
+            <Button onClick={handleCloseDrawer}>Hủy</Button>
             <Button type="primary" onClick={handleSave} loading={loading}>
-              {editingCategory ? 'Update' : 'Create'}
+              {editingCategory ? 'Cập nhật' : 'Tạo mới'}
             </Button>
           </Space>
         }
@@ -346,37 +321,35 @@ const Categories = () => {
         <Form form={form} layout="vertical">
           <Form.Item
             name="name"
-            label="Category Name"
-            rules={[{ required: true, message: 'Please enter category name' }]}
+            label="Tên danh mục"
+            rules={[{ required: true, message: 'Vui lòng nhập tên danh mục' }]}
           >
-            <Input placeholder="Enter category name" />
+            <Input placeholder="Nhập tên danh mục" />
           </Form.Item>
 
           <Form.Item
             name="description"
-            label="Description"
-            rules={[{ required: true, message: 'Please enter description' }]}
+            label="Mô tả"
           >
-            <TextArea rows={3} placeholder="Enter category description" />
+            <TextArea rows={3} placeholder="Nhập mô tả danh mục" />
           </Form.Item>
 
-          <Form.Item name="parentId" label="Parent Category">
+          <Form.Item name="parent_id" label="Danh mục cha">
             <Select
-              placeholder="Select parent category (optional)"
+              placeholder="Chọn danh mục cha (tùy chọn)"
               allowClear
               options={categories
-                .filter((cat) => cat.parentId === null && cat.id !== editingCategory?.id)
+                .filter((cat) => !cat.parent_id && cat._id !== editingCategory?._id)
                 .map((cat) => ({
                   label: cat.name,
-                  value: cat.id,
+                  value: cat._id,
                 }))}
             />
           </Form.Item>
 
           <Form.Item
-            name="imageUrl"
-            label="Image"
-            rules={[{ required: true, message: 'Please upload image' }]}
+            name="image_url"
+            label="Hình ảnh"
           >
             <Upload
               listType="picture-card"
@@ -394,8 +367,8 @@ const Categories = () => {
             </Upload>
           </Form.Item>
 
-          <Form.Item name="isActive" label="Active Status" valuePropName="checked">
-            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+          <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
+            <Switch checkedChildren="Hoạt động" unCheckedChildren="Ngừng" />
           </Form.Item>
         </Form>
       </Drawer>
