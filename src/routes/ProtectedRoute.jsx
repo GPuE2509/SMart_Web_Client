@@ -1,12 +1,12 @@
 import { Navigate } from 'react-router-dom';
-import { isAuthenticated } from '../utils/auth';
+import authService from '../services/authService';
 
 /**
  * Protected Route Component
  * Redirects to login if user is not authenticated
  */
 const ProtectedRoute = ({ children }) => {
-  if (!isAuthenticated()) {
+  if (!authService.isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 
