@@ -3,8 +3,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Form, Input, Button, message, Typography, Space, Result } from 'antd';
 import { LockOutlined, CheckCircleOutlined, ShoppingOutlined } from '@ant-design/icons';
 import logo from '../../assets/logo.png';
-import backgroundImg from '../../assets/background3.jpg';
-import './SignIn.css';
+import backgroundImg from '../../assets/background.jpg';
+import './Login.css';
 
 const { Title, Text } = Typography;
 
@@ -25,9 +25,9 @@ const ResetPassword = () => {
       message.success('Mật khẩu đã được đặt lại thành công!');
       setResetSuccess(true);
       
-      // Redirect to sign in after 2 seconds
+      // Redirect to login after 2 seconds
       setTimeout(() => {
-        navigate('/SignIn');
+        navigate('/login');
       }, 2000);
     } catch (error) {
       message.error('Có lỗi xảy ra. Vui lòng thử lại!');
@@ -39,8 +39,8 @@ const ResetPassword = () => {
 
   if (!token) {
     return (
-      <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-        <Card className="SignIn-card" bordered={false}>
+      <div className="login-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
+        <Card className="login-card" bordered={false}>
           <Result
             status="error"
             title="Liên kết không hợp lệ"
@@ -51,7 +51,7 @@ const ResetPassword = () => {
                   Gửi lại email khôi phục
                 </Button>
               </Link>,
-              <Link to="/SignIn" key="SignIn">
+              <Link to="/login" key="login">
                 <Button size="large">Quay lại đăng nhập</Button>
               </Link>,
             ]}
@@ -63,15 +63,15 @@ const ResetPassword = () => {
 
   if (resetSuccess) {
     return (
-      <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-        <Card className="SignIn-card" bordered={false}>
+      <div className="login-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
+        <Card className="login-card" bordered={false}>
           <Result
             icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
             status="success"
             title="Đặt lại mật khẩu thành công!"
             subTitle="Bạn sẽ được chuyển đến trang đăng nhập..."
             extra={[
-              <Link to="/SignIn" key="SignIn">
+              <Link to="/login" key="login">
                 <Button type="primary" size="large">
                   Đăng nhập ngay
                 </Button>
@@ -84,12 +84,12 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-      <Card className="SignIn-card" bordered={false}>
+    <div className="login-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
+      <Card className="login-card" bordered={false}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div className="SignIn-header">
+          <div className="login-header">
             <div className="logo-container">
-              <img src={logo} alt="SMart Logo" className="SignIn-logo" />
+              <img src={logo} alt="SMart Logo" className="login-logo" />
             </div>
             <Title level={2} style={{ margin: '16px 0 8px 0', color: '#1a2f3a' }}>
               Đặt Lại Mật Khẩu
@@ -162,7 +162,7 @@ const ResetPassword = () => {
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: 'center' }}>
-              <Link to="/SignIn">
+              <Link to="/login">
                 <Button type="link" style={{ color: '#1a2f3a' }}>
                   Quay lại đăng nhập
                 </Button>

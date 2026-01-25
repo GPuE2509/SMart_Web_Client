@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Card, Form, Input, Button, message, Typography, Space, Result } from 'antd';
 import { MailOutlined, ArrowLeftOutlined, ShoppingOutlined } from '@ant-design/icons';
 import logo from '../../assets/logo.png';
-import backgroundImg from '../../assets/background3.jpg';
-import './SignIn.css';
+import backgroundImg from '../../assets/background.jpg';
+import './Login.css';
 
 const { Title, Text } = Typography;
 
@@ -31,14 +31,14 @@ const ForgotPassword = () => {
 
   if (emailSent) {
     return (
-      <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-        <Card className="SignIn-card" bordered={false}>
+      <div className="login-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
+        <Card className="login-card" bordered={false}>
           <Result
             status="success"
             title="Email đã được gửi!"
             subTitle={`Chúng tôi đã gửi hướng dẫn khôi phục mật khẩu đến email của bạn. Vui lòng kiểm tra hộp thư.`}
             extra={[
-              <Link to="/SignIn" key="back">
+              <Link to="/login" key="back">
                 <Button type="primary" size="large">
                   <ArrowLeftOutlined /> Quay lại đăng nhập
                 </Button>
@@ -51,12 +51,12 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-      <Card className="SignIn-card" bordered={false}>
+    <div className="login-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
+      <Card className="login-card" bordered={false}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div className="SignIn-header">
+          <div className="login-header">
             <div className="logo-container">
-              <img src={logo} alt="SMart Logo" className="SignIn-logo" />
+              <img src={logo} alt="SMart Logo" className="login-logo" />
             </div>
             <Title level={2} style={{ margin: '16px 0 8px 0', color: '#1a2f3a' }}>
               Quên Mật Khẩu?
@@ -106,7 +106,7 @@ const ForgotPassword = () => {
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0, textAlign: 'center' }}>
-              <Link to="/SignIn">
+              <Link to="/login">
                 <Button type="link" icon={<ArrowLeftOutlined />} style={{ color: '#1a2f3a' }}>
                   Quay lại đăng nhập
                 </Button>
