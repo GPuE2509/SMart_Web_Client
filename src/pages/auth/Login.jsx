@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
 import { UserOutlined, LockOutlined, ShoppingOutlined } from '@ant-design/icons';
-import { mockLogin, setAuthData } from '../../utils/auth';
+import authService from '../../services/authService';
 import logo from '../../assets/logo.png';
 import backgroundImg from '../../assets/background.jpg';
 import './Login.css';
@@ -17,17 +17,17 @@ const Login = () => {
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
-      const result = await mockLogin(values.username, values.password);
+      const result = await authService.SignIn(values.email, values.password);
 
-      if (result.success) {
-        setAuthData(result.token, result.user);
-        message.success(`Welcome back, ${result.user.fullName}!`);
+      if (result.token) {
+        const user = authService.getUser();
+        message.success(`Chào mừng, ${user?.full_name || 'User'}!`);
         navigate('/dashboard');
       } else {
-        message.error(result.message || 'Login failed');
+        message.error(result.message || 'Đăng nhập thất bại');
       }
     } catch (error) {
-      message.error('An error occurred during login');
+      message.error(error.message || 'Đã xảy ra lỗi khi đăng nhập');
       console.error('Login error:', error);
     } finally {
       setLoading(false);
@@ -57,17 +57,21 @@ const Login = () => {
             autoComplete="off"
           >
             <Form.Item
-              name="username"
+              name="email"
               rules={[
                 {
                   required: true,
-                  message: 'Please enter your username or email',
+                  message: 'Vui lòng nhập email',
+                },
+                {
+                  type: 'email',
+                  message: 'Email không hợp lệ',
                 },
               ]}
             >
               <Input
                 prefix={<UserOutlined style={{ fontSize: '18px' }} />}
-                placeholder="Username or Email"
+                placeholder="Email"
                 style={{ fontSize: '16px', height: '50px' }}
               />
             </Form.Item>
@@ -77,13 +81,13 @@ const Login = () => {
               rules={[
                 {
                   required: true,
-                  message: 'Please enter your password',
+                  message: 'Vui lòng nhập mật khẩu',
                 },
               ]}
             >
               <Input.Password
                 prefix={<LockOutlined style={{ fontSize: '18px' }} />}
-                placeholder="Password"
+                placeholder="Mật khẩu"
                 style={{ fontSize: '16px', height: '50px' }}
               />
             </Form.Item>
