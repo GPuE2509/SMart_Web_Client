@@ -46,7 +46,6 @@ const BarcodeScanner = ({ visible, onScan, onClose }) => {
           rememberLastUsedCamera: true,
           aspectRatio: 1.777778, // 16:9
           showTorchButtonIfSupported: true,
-          formatsToSupport: [0, 1, 2, 3, 4], // All formats
         },
         false
       );
@@ -69,51 +68,33 @@ const BarcodeScanner = ({ visible, onScan, onClose }) => {
       scannerRef.current = html5QrcodeScanner;
       setLoading(false);
       
-      // Override default English text to Vietnamese
+      // Đổi text sang tiếng Việt
       setTimeout(() => {
-        const elements = {
+        const translations = {
           'Select Camera': 'Chọn Camera',
           'Start Scanning': 'Bắt đầu quét',
           'Stop Scanning': 'Dừng quét',
+          'Scan an Image File': 'Quét từ file ảnh',
           'Choose Image': 'Chọn ảnh',
           'Choose Another': 'Chọn ảnh khác',
           'Or drop an image to scan': 'Hoặc kéo thả ảnh để quét',
-          'Scan an Image File': 'Quét từ file ảnh',
           'Requesting camera permissions...': 'Đang yêu cầu quyền camera...',
           'Permission denied': 'Không có quyền truy cập',
-          'Camera scan': 'Quét bằng camera',
-          'File scan': 'Quét từ file'
         };
         
-        // Replace text in all elements
+        // Thay đổi text trong tất cả các element
         document.querySelectorAll('#barcode-reader *').forEach(el => {
-          if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
-            const text = el.textContent.trim();
-            if (elements[text]) {
-              el.textContent = elements[text];
-            }
+          const text = el.textContent?.trim();
+          if (text && translations[text]) {
+            el.textContent = translations[text];
+          }
+          
+          // Thay đổi placeholder
+          if (el.placeholder && translations[el.placeholder]) {
+            el.placeholder = translations[el.placeholder];
           }
         });
-        
-        // Replace button text
-        document.querySelectorAll('#barcode-reader button').forEach(btn => {
-          const text = btn.textContent.trim();
-          if (elements[text]) {
-            btn.textContent = elements[text];
-          }
-        });
-        
-        // Replace placeholder text
-        document.querySelectorAll('#barcode-reader input[type="file"]').forEach(input => {
-          if (input.placeholder) {
-            Object.keys(elements).forEach(key => {
-              if (input.placeholder.includes(key)) {
-                input.placeholder = input.placeholder.replace(key, elements[key]);
-              }
-            });
-          }
-        });
-      }, 200);
+      }, 300);
     } catch (err) {
       console.error('Failed to start scanner:', err);
       setError('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');
