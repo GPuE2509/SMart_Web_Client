@@ -2,13 +2,10 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Spin } from 'antd';
 import authService from '../services/authService';
-import { canAccessSystem, getHomeRoute } from '../utils/roleUtils';
 
 /**
  * Protected Route Component
- * Redirects to sign in if user is not authenticated
- * Blocks customer from accessing the system
- * Enforces role-based access control for admin/seller/repository routes
+ * Redirects to login if user is not authenticated
  */
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const location = useLocation();

@@ -4,8 +4,8 @@ import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
 import { MailOutlined, ArrowLeftOutlined, LockOutlined } from '@ant-design/icons';
 import axios from '../../services/axios';
 import logo from '../../assets/logo.png';
-import backgroundImg from '../../assets/background3.jpg';
-import './SignIn.css';
+import backgroundImg from '../../assets/background.jpg';
+import './Login.css';
 
 const { Title, Text } = Typography;
 
@@ -173,101 +173,6 @@ const ForgotPassword = () => {
     );
   }
 
-  // Step 3: Enter new password
-  if (step === 3) {
-    return (
-      <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
-        <Card className="SignIn-card" bordered={false}>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <div className="SignIn-header">
-              <div className="logo-container">
-                <img src={logo} alt="SMart Logo" className="SignIn-logo" />
-              </div>
-              <Title level={2} style={{ margin: '16px 0 8px 0', color: '#1a2f3a' }}>
-                Đặt Mật Khẩu Mới
-              </Title>
-              <Text style={{ fontSize: '15px', color: '#6c757d' }}>
-                Nhập mật khẩu mới cho tài khoản của bạn
-              </Text>
-            </div>
-
-            <Form
-              form={passwordForm}
-              name="reset-password"
-              onFinish={handleResetPassword}
-              layout="vertical"
-              size="large"
-              autoComplete="off"
-            >
-              <Form.Item
-                label="Mật khẩu mới"
-                name="newPassword"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập mật khẩu mới!' },
-                  { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' },
-                  { 
-                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 
-                    message: 'Mật khẩu phải có chữ hoa, chữ thường và số!' 
-                  }
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined />}
-                  placeholder="Nhập mật khẩu mới"
-                />
-              </Form.Item>
-
-              <Form.Item
-                label="Xác nhận mật khẩu"
-                name="confirmPassword"
-                dependencies={['newPassword']}
-                rules={[
-                  { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue('newPassword') === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined />}
-                  placeholder="Nhập lại mật khẩu mới"
-                />
-              </Form.Item>
-
-              <Form.Item style={{ marginBottom: '12px' }}>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  block
-                  style={{
-                    height: '48px',
-                    fontSize: '16px',
-                    fontWeight: '500',
-                  }}
-                >
-                  Đặt Lại Mật Khẩu
-                </Button>
-              </Form.Item>
-            </Form>
-
-            <div style={{ textAlign: 'center' }}>
-              <Link to="/SignIn" style={{ color: '#1890ff' }}>
-                <ArrowLeftOutlined /> Quay lại đăng nhập
-              </Link>
-            </div>
-          </Space>
-        </Card>
-      </div>
-    );
-  }
-
-  // Step 1: Enter email
   return (
     <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
       <Card className="SignIn-card" bordered={false}>
