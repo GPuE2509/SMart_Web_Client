@@ -9,7 +9,7 @@ import ChangePassword from '../pages/auth/ChangePassword';
 import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import Categories from '../pages/admin/Categories';
-import Units from '../pages/admin/Units';
+import ProductUnits from '../pages/admin/ProductUnits';
 import Accounts from '../pages/admin/Accounts';
 import Profile from '../pages/admin/Profile';
 import Coupons from '../pages/admin/Coupons';
@@ -76,7 +76,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'units',
-        element: <Units />,
+        element: <ProductUnits  />,
       },
       {
         path: 'orders',

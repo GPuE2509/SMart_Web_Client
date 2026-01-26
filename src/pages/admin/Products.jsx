@@ -262,20 +262,6 @@ const Products = () => {
     }
   };
 
-  // Stock status color
-  const getStockStatusColor = (status) => {
-    switch (status) {
-      case 'in_stock':
-        return 'green';
-      case 'low_stock':
-        return 'orange';
-      case 'out_of_stock':
-        return 'red';
-      default:
-        return 'default';
-    }
-  };
-
   // Table columns
   const columns = [
     {
@@ -296,9 +282,9 @@ const Products = () => {
       dataIndex: 'name',
       key: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (name, record) => (
+      render: (name) => (
         <a
-          onClick={() => navigate(`/admin/units?product_id=${record._id}`)}
+          onClick={() => navigate(`/admin/units?search=${encodeURIComponent(name)}`)}
           style={{ cursor: 'pointer', color: '#000000' }}
         >
           {name}
