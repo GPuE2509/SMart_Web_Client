@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Card, Form, Input, Button, message, Typography, Space } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, message, Typography, Space, Spin, Alert } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import authService from '../../services/authService';
+import socketService from '../../services/socketService';
 import { getHomeRoute, canAccessSystem } from '../../utils/roleUtils';
+import { v4 as uuidv4 } from 'uuid';
 import logo from '../../assets/logo.png';
 import backgroundImg from '../../assets/background3.jpg';
 import './SignIn.css';
@@ -12,33 +14,130 @@ const { Title, Text } = Typography;
 
 const SignIn = () => {
   const [loading, setLoading] = useState(false);
+  const [waitingForEmail, setWaitingForEmail] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const navigate = useNavigate();
   const [form] = Form.useForm();
 
+  useEffect(() => {
+    // Cleanup socket when component unmounts
+    return () => {
+      if (waitingForEmail) {
+        socketService.removeAllListeners();
+        socketService.disconnect();
+      }
+    };
+  }, [waitingForEmail]);
+
   const handleSubmit = async (values) => {
     setLoading(true);
+    setUserEmail(values.email);
+
     try {
-      const result = await authService.SignIn(values.email, values.password);
+      // Generate unique session ID
+      const sessionId = uuidv4();
 
-      // Kiểm tra quyền truy cập
-      if (!canAccessSystem()) {
-        message.error('Tài khoản không có quyền truy cập hệ thống');
-        authService.logout();
+      // Connect to socket FIRST and wait for connection
+      console.log('🔌 Connecting socket with sessionId:', sessionId);
+      const socket = socketService.connect(sessionId);
+
+      // Wait for socket to connect
+      await new Promise((resolve) => {
+        if (socket.connected) {
+          console.log('✅ Socket already connected');
+          resolve();
+        } else {
+          socket.once('connect', () => {
+            console.log('✅ Socket connected successfully');
+            resolve();
+          });
+        }
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          if (!socket.connected) {
+            console.warn('⚠️ Socket connection timeout');
+          }
+          resolve();
+        }, 5000);
+      });
+
+      // Setup socket listeners BEFORE making API request
+      socketService.onLoginVerification((data) => {
+        console.log('📧 Login verification sent:', data);
+        message.info(data.message);
+        setWaitingForEmail(true);
         setLoading(false);
-        return;
-      }
+      });
 
-      message.success(result.message || 'Đăng nhập thành công!');
-      
-      // Redirect đến trang phù hợp với role
-      const homeRoute = getHomeRoute();
-      navigate(homeRoute);
+      socketService.onLoginApproved((data) => {
+        console.log('✅ Login approved:', data);
+        message.success(data.message || 'Đăng nhập thành công!');
+        
+        // Token is now in HTTP-only cookie, no need to save manually
+        // Just check if user has access permission
+        if (data.user && !canAccessSystem(data.user)) {
+          message.error('Tài khoản không có quyền truy cập hệ thống');
+          authService.logout();
+          setWaitingForEmail(false);
+          socketService.disconnect();
+          return;
+        }
+
+        // Navigate to home
+        const homeRoute = getHomeRoute(data.user);
+        setWaitingForEmail(false);
+        socketService.disconnect();
+        navigate(homeRoute);
+      });
+
+      socketService.onLoginDenied((data) => {
+        console.log('❌ Login denied:', data);
+        message.error(data.message || 'Đăng nhập bị từ chối');
+        setWaitingForEmail(false);
+        setLoading(false);
+        socketService.disconnect();
+      });
+
+      // NOW make the API request after socket is ready
+      console.log('📡 Sending login request...');
+      const result = await authService.staffAdminLogin(
+        values.email,
+        values.password,
+        sessionId
+      );
+
+      console.log('✅ Login request result:', result);
+
+      // If not requires email verification (shouldn't happen for staff/admin)
+      if (!result.requiresEmailVerification) {
+        message.success(result.message || 'Đăng nhập thành công!');
+        setLoading(false);
+        
+        if (!canAccessSystem()) {
+          message.error('Tài khoản không có quyền truy cập hệ thống');
+          authService.logout();
+          return;
+        }
+
+        const homeRoute = getHomeRoute();
+        navigate(homeRoute);
+      }
     } catch (error) {
-      // Hiển thị message từ API
-      message.error(error.error || 'Đã xảy ra lỗi');
-    } finally {
+      console.error('❌ Login error:', error);
+      message.error(error.message || 'Đã xảy ra lỗi');
       setLoading(false);
+      setWaitingForEmail(false);
+      socketService.disconnect();
     }
+  };
+
+  const handleCancelWaiting = () => {
+    setWaitingForEmail(false);
+    setLoading(false);
+    socketService.removeAllListeners();
+    socketService.disconnect();
+    message.info('Đã hủy chờ xác thực');
   };
 
   return (
@@ -55,6 +154,38 @@ const SignIn = () => {
             <Text style={{ fontSize: '18px', color: '#6c757d' }}>Đăng nhập để quản lý hệ thống</Text>
           </div>
 
+          {waitingForEmail && (
+            <Alert
+              message={
+                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                  <Space>
+                    <MailOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
+                    <Text strong style={{ fontSize: '16px' }}>Đang chờ xác thực email</Text>
+                  </Space>
+                  <Text style={{ fontSize: '14px' }}>
+                    Email xác thực đã được gửi đến <strong>{userEmail}</strong>
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: '13px' }}>
+                    Vui lòng kiểm tra hộp thư và nhấn vào nút "Đúng là tôi" để hoàn tất đăng nhập
+                  </Text>
+                  <div style={{ marginTop: '10px' }}>
+                    <Spin size="small" style={{ marginRight: '8px' }} />
+                    <Text type="secondary">Đang chờ xác nhận...</Text>
+                  </div>
+                </Space>
+              }
+              type="info"
+              showIcon={false}
+              icon={<ClockCircleOutlined />}
+              style={{ marginBottom: '16px' }}
+              action={
+                <Button size="small" type="link" onClick={handleCancelWaiting}>
+                  Hủy
+                </Button>
+              }
+            />
+          )}
+
           <Form
             form={form}
             name="SignIn"
@@ -62,6 +193,7 @@ const SignIn = () => {
             layout="vertical"
             size="large"
             autoComplete="off"
+            disabled={waitingForEmail}
           >
             <Form.Item
               name="email"
@@ -110,10 +242,11 @@ const SignIn = () => {
                 type="primary"
                 htmlType="submit"
                 loading={loading}
+                disabled={waitingForEmail}
                 block
                 style={{ fontSize: '16px', height: '50px', fontWeight: 'bold' }}
               >
-                {loading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
+                {loading ? 'Đang xử lý...' : waitingForEmail ? 'Đang chờ xác thực...' : 'Đăng Nhập'}
               </Button>
             </Form.Item>
           </Form>
