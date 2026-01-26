@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Table,
   Card,
@@ -34,6 +35,8 @@ import {
   StopOutlined,
   CheckCircleOutlined,
   FilterOutlined,
+  StarFilled,
+  StarOutlined,
 } from '@ant-design/icons';
 import BarcodeScanner from '../../components/BarcodeScanner';
 import productUnitService from '../../services/productUnitService';
@@ -43,6 +46,8 @@ import unitService from '../../services/unitService';
 const { Title, Text } = Typography;
 
 const ProductUnits = () => {
+  const [searchParams] = useSearchParams();
+  const [searchText, setSearchText] = useState('');
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -73,7 +78,13 @@ const ProductUnits = () => {
   // Load products and units on mount
   useEffect(() => {
     loadDropdownData();
-  }, []);
+    
+    // Get search param from URL
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchText(searchParam);
+    }
+  }, [searchParams]);
 
   // Load dropdown data (products and units)
   const loadDropdownData = async () => {
@@ -84,11 +95,11 @@ const ProductUnits = () => {
         unitService.getAll()
       ]);
 
-      if (productsRes.data.success) {
-        setProducts(productsRes.data.data);
+      if (productsRes.success) {
+        setProducts(productsRes.data);
       }
-      if (unitsRes.data.success) {
-        setUnits(unitsRes.data.data);
+      if (unitsRes.success) {
+        setUnits(unitsRes.data);
       }
     } catch (error) {
       console.error('Failed to load dropdown data:', error);
@@ -100,10 +111,10 @@ const ProductUnits = () => {
 
   // Load data on mount
   useEffect(() => {
-    loadProductUnits();
+    loadProductUnits(searchText);
     loadStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.current, pagination.pageSize, filterBaseUnit]);
+  }, [pagination.current, pagination.pageSize, filterBaseUnit, searchText]);
 
   // Load product units from API
   const loadProductUnits = async (searchText = '') => {
@@ -230,9 +241,9 @@ const ProductUnits = () => {
       width: 70,
       render: (isBase) => (
         isBase ? (
-          <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
+          <StarFilled style={{ color: '#faad14', fontSize: 18 }} />
         ) : (
-          <StopOutlined style={{ color: '#d9d9d9', fontSize: 16 }} />
+          <StarOutlined style={{ color: '#d9d9d9', fontSize: 16 }} />
         )
       ),
     },
@@ -418,17 +429,17 @@ const ProductUnits = () => {
 
     try {
       const response = await unitService.create({ name: trimmedName });
-      if (response.data.success) {
-        message.success(`Đã thêm đơn vị "${quickUnitName}" thành công`);
+      if (response.success) {
+        message.success(`Đã thêm đơn vị "${trimmedName}" thành công`);
         setQuickAddUnitVisible(false);
         setQuickUnitName('');
         // Reload units
         await loadDropdownData();
         // Set the newly created unit as selected
-        form.setFieldsValue({ unitId: response.data.data._id });
+        form.setFieldsValue({ unitId: response.data._id });
       }
     } catch (error) {
-      message.error(error.response?.data?.message || 'Không thể thêm đơn vị');
+      message.error(error.message || 'Không thể thêm đơn vị');
     }
   };
 
@@ -507,7 +518,11 @@ const ProductUnits = () => {
             <Input
               placeholder="Tìm kiếm theo tên sản phẩm hoặc mã vạch..."
               prefix={<SearchOutlined />}
-              onChange={(e) => handleSearch(e.target.value)}
+              value={searchText}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                handleSearch(e.target.value);
+              }}
               size="large"
               style={{ width: 400 }}
             />
