@@ -536,10 +536,7 @@ const ProductUnits = () => {
               placeholder="Tìm kiếm theo tên sản phẩm hoặc mã vạch..."
               prefix={<SearchOutlined />}
               value={searchText}
-              onChange={(e) => {
-                setSearchText(e.target.value);
-                handleSearch(e.target.value);
-              }}
+              onChange={(e) => setSearchText(e.target.value)}
               size="large"
               style={{ width: 400 }}
             />
