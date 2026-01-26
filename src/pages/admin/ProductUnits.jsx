@@ -74,17 +74,27 @@ const ProductUnits = () => {
   const [loadingDropdowns, setLoadingDropdowns] = useState(false);
   
   const [form] = Form.useForm();
+  const [initialized, setInitialized] = useState(false);
 
-  // Load products and units on mount
+  // Initialize on mount - load dropdown data and set search from URL
   useEffect(() => {
-    loadDropdownData();
+    const initializePage = async () => {
+      // Load dropdown data
+      await loadDropdownData();
+      
+      // Get search param from URL
+      const searchParam = searchParams.get('search');
+      if (searchParam) {
+        setSearchText(searchParam);
+      }
+      
+      // Mark as initialized
+      setInitialized(true);
+    };
     
-    // Get search param from URL
-    const searchParam = searchParams.get('search');
-    if (searchParam) {
-      setSearchText(searchParam);
-    }
-  }, [searchParams]);
+    initializePage();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load dropdown data (products and units)
   const loadDropdownData = async () => {
@@ -109,12 +119,14 @@ const ProductUnits = () => {
     }
   };
 
-  // Load data on mount
+  // Load data when dependencies change (but only after initialization)
   useEffect(() => {
+    if (!initialized) return;
+    
     loadProductUnits(searchText);
     loadStats();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.current, pagination.pageSize, filterBaseUnit, searchText]);
+  }, [pagination.current, pagination.pageSize, filterBaseUnit, searchText, initialized]);
 
   // Load product units from API
   const loadProductUnits = async (searchText = '') => {
@@ -333,7 +345,8 @@ const ProductUnits = () => {
         loadProductUnits();
       }
     } catch (error) {
-      message.error(error.message || 'Không thể cập nhật trạng thái đơn vị sản phẩm');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể cập nhật trạng thái đơn vị sản phẩm';
+      message.error(errorMessage);
     }
   };
 
@@ -372,7 +385,9 @@ const ProductUnits = () => {
       setDrawerVisible(false);
       form.resetFields();
     } catch (error) {
-      message.error(error.message || 'Không thể lưu đơn vị sản phẩm');
+      // Lấy message từ response nếu có
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể lưu đơn vị sản phẩm';
+      message.error(errorMessage);
       console.error('Save error:', error);
     }
   };
@@ -407,7 +422,8 @@ const ProductUnits = () => {
         message.success(`Đã tạo mã vạch: ${generatedBarcode}`);
       }
     } catch (error) {
-      message.error(error.message || 'Không thể tạo mã vạch');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể tạo mã vạch';
+      message.error(errorMessage);
     }
   };
 
@@ -439,7 +455,8 @@ const ProductUnits = () => {
         form.setFieldsValue({ unitId: response.data._id });
       }
     } catch (error) {
-      message.error(error.message || 'Không thể thêm đơn vị');
+      const errorMessage = error.response?.data?.message || error.message || 'Không thể thêm đơn vị';
+      message.error(errorMessage);
     }
   };
 
@@ -537,7 +554,9 @@ const ProductUnits = () => {
               current: pagination.current,
               pageSize: pagination.pageSize,
               total: pagination.total,
-              showTotal: (total) => `Tổng ${total} mục`,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50', '100'],
+              showTotal: (total) => `Tổng ${total} đơn vị sản phẩm`,
               onChange: (page, pageSize) => {
                 setPagination({ ...pagination, current: page, pageSize });
               },
