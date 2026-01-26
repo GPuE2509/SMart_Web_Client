@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
-import { Layout, Menu, Avatar, Dropdown, Typography, Space } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Typography, Space, Spin } from 'antd';
 import {
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  LockOutlined,
   ShoppingOutlined,
   AppstoreOutlined,
 } from '@ant-design/icons';
@@ -17,11 +18,36 @@ const { Text } = Typography;
 
 const SellerLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const userInfo = getUserDisplayInfo();
 
-  const handleLogout = () => {
-    authService.logout();
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await authService.getUser();
+        if (user) {
+          setUserInfo(getUserDisplayInfo(user));
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  const handleLogout = async () => {
+    await authService.logout();
     navigate('/SignIn');
   };
 
@@ -31,6 +57,12 @@ const SellerLayout = () => {
       icon: <UserOutlined />,
       label: 'Thông tin cá nhân',
       onClick: () => navigate('/profile'),
+    },
+        {
+      key: 'change-password',
+      icon: <LockOutlined />,
+      label: 'Change Password',
+      onClick: () => navigate('/seller/change-password'),
     },
     {
       type: 'divider',

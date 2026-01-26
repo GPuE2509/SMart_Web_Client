@@ -1,8 +1,7 @@
 import axiosInstance from './axios';
-import Cookies from 'js-cookie';
 
 const authService = {
-  // Đăng nhập
+  // Sign in - token is now stored in HTTP-only cookie automatically
   SignIn: async (email, password) => {
     try {
       const response = await axiosInstance.post('/auth/signin', {
@@ -10,19 +9,9 @@ const authService = {
         password,
       });
 
-      if (response.data.token) {
-        // Lưu token vào cookie (expires sau 7 ngày)
-        Cookies.set('token', response.data.token, { expires: 7 });
-        
-        // Nếu có thông tin user, lưu luôn
-        if (response.data.user) {
-          Cookies.set('user', JSON.stringify(response.data.user), { expires: 7 });
-        }
-      }
-
+      // Server sets HTTP-only cookie, we just return user data
       return response.data;
     } catch (error) {
-      // Ném error với format chuẩn, ưu tiên error trước message
       const errorData = error.response?.data || {};
       throw {
         status: error.response?.status,
@@ -32,26 +21,54 @@ const authService = {
     }
   },
 
-  // Đăng xuất
-  logout: () => {
-    Cookies.remove('token');
-    Cookies.remove('user');
+  // Logout - clear HTTP-only cookie on server
+  logout: async () => {
+    try {
+      await axiosInstance.post('/auth/logout');
+    } catch (error) {
+      // Even if request fails, we treat as logged out
+      console.error('Logout error:', error);
+    }
   },
 
-  // Lấy token hiện tại
-  getToken: () => {
-    return Cookies.get('token');
+  // Get current user from server (requires valid cookie)
+  getUser: async () => {
+    try {
+      const response = await axiosInstance.get('/auth/me');
+      return response.data.user;
+    } catch (error) {
+      return null;
+    }
   },
 
-  // Lấy thông tin user
-  getUser: () => {
-    const user = Cookies.get('user');
-    return user ? JSON.parse(user) : null;
+  // Check authentication by trying to get current user
+  isAuthenticated: async () => {
+    try {
+      await axiosInstance.get('/auth/me');
+      return true;
+    } catch (error) {
+      return false;
+    }
   },
 
-  // Kiểm tra đã đăng nhập chưa
-  isAuthenticated: () => {
-    return !!Cookies.get('token');
+  // Staff/Admin Login with Email Verification
+  staffAdminLogin: async (email, password, sessionId) => {
+    try {
+      const response = await axiosInstance.post('/auth/staff-admin-login', {
+        email,
+        password,
+        sessionId
+      });
+
+      return response.data;
+    } catch (error) {
+      const errorData = error.response?.data || {};
+      throw {
+        status: error.response?.status,
+        message: errorData.error || errorData.message,
+        ...errorData
+      };
+    }
   },
 };
 

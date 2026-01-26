@@ -5,6 +5,7 @@ import RepositoryLayout from '../layouts/RepositoryLayout';
 import SignIn from '../pages/auth/SignIn';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
+import ChangePassword from '../pages/auth/ChangePassword';
 import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import Categories from '../pages/admin/Categories';
@@ -101,6 +102,10 @@ const router = createBrowserRouter([
         path: 'profile',
         element: <Profile />,
       },
+      {
+        path: 'change-password',
+        element: <ChangePassword />,
+      },
     ],
   },
   // Seller routes with separate layout
@@ -116,6 +121,10 @@ const router = createBrowserRouter([
         index: true,
         element: <SellerDashboard />,
       },
+      {
+        path: 'change-password',
+        element: <ChangePassword />,
+      },
     ],
   },
   // Repository routes with separate layout
@@ -130,6 +139,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <RepositoryDashboard />,
+      },
+      {
+        path: 'change-password',
+        element: <ChangePassword />,
       },
     ],
   },

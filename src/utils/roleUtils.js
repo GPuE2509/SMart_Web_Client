@@ -2,10 +2,9 @@ import authService from '../services/authService';
 
 /**
  * Get home route based on user role
+ * @param {Object} user - User object (optional, will fetch from server if not provided)
  */
-export const getHomeRoute = () => {
-  const user = authService.getUser();
-  
+export const getHomeRoute = (user) => {
   if (!user || !user.role) {
     return '/SignIn';
   }
@@ -27,10 +26,9 @@ export const getHomeRoute = () => {
 
 /**
  * Check if user has access to the system
+ * @param {Object} user - User object
  */
-export const canAccessSystem = () => {
-  const user = authService.getUser();
-  
+export const canAccessSystem = (user) => {
   if (!user || !user.role) {
     return false;
   }
@@ -41,10 +39,9 @@ export const canAccessSystem = () => {
 
 /**
  * Get user display info
+ * @param {Object} user - User object
  */
-export const getUserDisplayInfo = () => {
-  const user = authService.getUser();
-  
+export const getUserDisplayInfo = (user) => {
   if (!user) {
     return null;
   }
