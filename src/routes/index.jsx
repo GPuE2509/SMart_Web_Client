@@ -18,6 +18,7 @@ import Orders from '../pages/admin/Orders';
 import Payslips from '../pages/admin/Payslips';
 import SellerDashboard from '../pages/seller/SellerDashboard';
 import RepositoryDashboard from '../pages/repository/RepositoryDashboard';
+import RepositoryProductBatches from '../pages/repository/ProductBatches';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 
@@ -138,7 +139,11 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <RepositoryDashboard />,
+        element: <Navigate to="/repository/batches" replace />,
+      },
+      {
+        path: 'batches',
+        element: <RepositoryProductBatches />,
       },
       {
         path: 'change-password',

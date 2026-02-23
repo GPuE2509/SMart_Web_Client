@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Layout, Menu, Avatar, Dropdown, Typography, Space, Spin } from 'antd';
 import {
   LogoutOutlined,
   UserOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined,
   LockOutlined,
+  MenuUnfoldOutlined,
   InboxOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 import authService from '../services/authService';
 import { getUserDisplayInfo } from '../utils/roleUtils';
+import '../layouts/AdminLayout.css';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -21,6 +21,7 @@ const RepositoryLayout = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -46,17 +47,26 @@ const RepositoryLayout = () => {
     );
   }
 
+  // Get current selected menu key from path
+  const selectedKey = location.pathname.includes('/batches') ? 'batches' : 'batches';
+
+  const handleMenuClick = ({ key }) => {
+    if (key === 'batches') {
+      navigate('/repository/batches');
+    }
+  };
+
   const handleLogout = async () => {
     await authService.logout();
-    navigate('/SignIn');
+    navigate('/login');
   };
 
   const userMenuItems = [
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: 'Thông tin cá nhân',
-      onClick: () => navigate('/profile'),
+      label: 'Profile',
+      onClick: () => navigate('/repository/profile'),
     },
     {
       key: 'change-password',
@@ -70,61 +80,87 @@ const RepositoryLayout = () => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Đăng xuất',
+      label: 'Logout',
       onClick: handleLogout,
     },
   ];
 
   const menuItems = [
     {
-      key: 'repository',
-      icon: <InboxOutlined />,
-      label: 'Kho hàng',
-      onClick: () => navigate('/repository'),
-    },
-    {
-      key: 'inventory',
-      icon: <BarChartOutlined />,
-      label: 'Tồn kho',
-      onClick: () => navigate('/repository/inventory'),
+      type: 'group',
+      label: 'Quản lý kho',
+      key: 'warehouse',
+      children: [
+        {
+          key: 'batches',
+          icon: <InboxOutlined />,
+          label: 'Quản lý lô hàng',
+        },
+      ],
     },
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div style={{ height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <h2 style={{ margin: 0, color: 'white' }}>{collapsed ? 'R' : 'Repository'}</h2>
+    <Layout className="main-layout">
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        className="main-sider"
+        width={250}
+        breakpoint="lg"
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
+        }}
+      >
+        <div className="logo">
+          {!collapsed ? (
+            <img
+              src="/src/assets/logo.png"
+              alt="SMart"
+              className="logo-full"
+            />
+          ) : (
+            <img
+              src="/src/assets/logo.png"
+              alt="SMart"
+              className="logo-collapsed"
+            />
+          )}
         </div>
+
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={['repository']}
+          selectedKeys={[selectedKey]}
+          onClick={handleMenuClick}
           items={menuItems}
         />
       </Sider>
+
       <Layout>
-        <Header style={{ padding: 0, background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ paddingLeft: '16px' }}>
+        <Header className="main-header">
+          <div className="header-left">
             {collapsed ? (
               <MenuUnfoldOutlined
-                style={{ fontSize: '18px', cursor: 'pointer' }}
+                className="trigger"
                 onClick={() => setCollapsed(!collapsed)}
               />
             ) : (
               <MenuFoldOutlined
-                style={{ fontSize: '18px', cursor: 'pointer' }}
+                className="trigger"
                 onClick={() => setCollapsed(!collapsed)}
               />
             )}
           </div>
-          <div style={{ paddingRight: '16px' }}>
+
+          <div className="header-right">
             <Dropdown
               menu={{ items: userMenuItems }}
               placement="bottomRight"
               trigger={['click']}
             >
-              <Space style={{ cursor: 'pointer' }}>
+              <Space className="user-info" style={{ cursor: 'pointer' }}>
                 <Avatar
                   src={userInfo?.avatar}
                   icon={<UserOutlined />}
@@ -140,8 +176,11 @@ const RepositoryLayout = () => {
             </Dropdown>
           </div>
         </Header>
-        <Content style={{ margin: '24px 16px', padding: 24, background: '#fff' }}>
-          <Outlet />
+
+        <Content className="main-content">
+          <div className="content-wrapper">
+            <Outlet />
+          </div>
         </Content>
       </Layout>
     </Layout>
