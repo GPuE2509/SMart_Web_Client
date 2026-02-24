@@ -12,7 +12,7 @@ import {
   ShoppingCartOutlined,
   DollarOutlined,
   AppstoreAddOutlined,
-} from '@ant-design/icons';
+} from "@ant-design/icons";
 
 /**
  * Menu item configuration
@@ -29,91 +29,91 @@ import {
  */
 export const menuItems = [
   {
-    type: 'group',
-    label: 'Overview',
-    key: 'overview-group',
+    type: "group",
+    label: "Overview",
+    key: "overview-group",
     children: [
       {
-        key: 'dashboard',
-        label: 'Dashboard',
+        key: "dashboard",
+        label: "Dashboard",
         icon: DashboardOutlined,
-        path: '/admin/dashboard',
+        path: "/admin/dashboard",
       },
     ],
   },
   {
-    type: 'group',
-    label: 'Inventory',
-    key: 'inventory-group',
+    type: "group",
+    label: "Inventory",
+    key: "inventory-group",
     children: [
       {
-        key: 'products',
-        label: 'Products',
+        key: "products",
+        label: "Products",
         icon: ShoppingOutlined,
-        path: '/admin/products',
+        path: "/admin/products",
       },
       {
-        key: 'categories',
-        label: 'Categories',
+        key: "categories",
+        label: "Categories",
         icon: AppstoreOutlined,
-        path: '/admin/categories',
+        path: "/admin/categories",
       },
       {
-        key: 'units',
-        label: 'Units',
+        key: "units",
+        label: "Units",
         icon: AppstoreAddOutlined,
-        path: '/admin/units',
+        path: "/admin/units",
       },
     ],
   },
   {
-    type: 'group',
-    label: 'Sales & Marketing',
-    key: 'sales-group',
+    type: "group",
+    label: "Sales & Marketing",
+    key: "sales-group",
     children: [
       {
-        key: 'orders',
-        label: 'Orders',
+        key: "orders",
+        label: "Orders",
         icon: ShoppingCartOutlined,
-        path: '/admin/orders',
+        path: "/admin/orders",
       },
       {
-        key: 'coupons',
-        label: 'Coupons',
+        key: "coupons",
+        label: "Coupons",
         icon: TagOutlined,
-        path: '/admin/coupons',
+        path: "/admin/coupons",
       },
     ],
   },
   {
-    type: 'group',
-    label: 'Finance',
-    key: 'finance-group',
+    type: "group",
+    label: "Finance",
+    key: "finance-group",
     children: [
       {
-        key: 'payslips',
-        label: 'Payslips',
+        key: "payslips",
+        label: "Payslips",
         icon: DollarOutlined,
-        path: '/admin/payslips',
+        path: "/admin/payslips",
       },
       {
-        key: 'reports',
-        label: 'Reports',
+        key: "reports",
+        label: "Reports",
         icon: BarChartOutlined,
-        path: '/admin/reports',
+        path: "/admin/reports",
       },
     ],
   },
   {
-    type: 'group',
-    label: 'System',
-    key: 'system-group',
+    type: "group",
+    label: "System",
+    key: "system-group",
     children: [
       {
-        key: 'accounts',
-        label: 'Accounts',
+        key: "accounts",
+        label: "Accounts",
         icon: UserOutlined,
-        path: '/admin/accounts',
+        path: "/admin/accounts",
       },
     ],
   },
