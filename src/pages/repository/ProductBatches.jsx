@@ -16,6 +16,10 @@ import {
   DatePicker,
   InputNumber,
   Divider,
+  Popconfirm,
+  Modal,
+  Dropdown,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -24,6 +28,9 @@ import {
   PlusCircleOutlined,
   DownOutlined,
   UpOutlined,
+  StopOutlined,
+  SwapOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import productBatchService from '../../services/productBatchService';
 import productService from '../../services/productService';
@@ -32,6 +39,7 @@ import productUnitService from '../../services/productUnitService';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
+const { RangePicker } = DatePicker;
 
 const ProductBatches = () => {
   const [batches, setBatches] = useState([]);
@@ -42,6 +50,7 @@ const ProductBatches = () => {
   const [viewingBatch, setViewingBatch] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [expiryDateRange, setExpiryDateRange] = useState(null);
   // Store products and units for each item dynamically
   const [itemProducts, setItemProducts] = useState({});
   const [itemUnits, setItemUnits] = useState({});
@@ -51,6 +60,10 @@ const ProductBatches = () => {
   const [detailCollapsedItems, setDetailCollapsedItems] = useState({});
   // Track edit mode for detail view
   const [isEditingDetail, setIsEditingDetail] = useState(false);
+  // Reject modal
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectingBatchId, setRejectingBatchId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -385,6 +398,11 @@ const ProductBatches = () => {
       active: 'green',
       near_expiry: 'orange',
       expired: 'red',
+      instock: 'blue',
+      outdate: 'red',
+      onsale: 'cyan',
+      sold: 'purple',
+      rejected: 'gray',
     };
     return colorMap[status] || 'default';
   };
@@ -395,6 +413,11 @@ const ProductBatches = () => {
       active: 'Hoạt động',
       near_expiry: 'Sắp hết hạn',
       expired: 'Hết hạn',
+      instock: 'Trong kho',
+      outdate: 'Quá hạn',
+      onsale: 'Đang bán',
+      sold: 'Đã bán hết',
+      rejected: 'Đã từ chối',
     };
     return labelMap[status] || status;
   };
@@ -414,6 +437,88 @@ const ProductBatches = () => {
     } else {
       return 'active';
     }
+  };
+
+  // Get current filter params
+  const getCurrentFilterParams = () => {
+    const params = {
+      page: pagination.current,
+      limit: pagination.pageSize,
+    };
+    if (searchText) params.search = searchText;
+    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+    if (expiryDateRange && expiryDateRange[0]) {
+      params.expiry_date_from = expiryDateRange[0].format('YYYY-MM-DD');
+    }
+    if (expiryDateRange && expiryDateRange[1]) {
+      params.expiry_date_to = expiryDateRange[1].format('YYYY-MM-DD');
+    }
+    return params;
+  };
+
+  // Handle expiry date range filter
+  const handleExpiryDateFilter = (dates) => {
+    setExpiryDateRange(dates);
+    const params = { page: 1 };
+    if (searchText) params.search = searchText;
+    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+    if (dates && dates[0]) params.expiry_date_from = dates[0].format('YYYY-MM-DD');
+    if (dates && dates[1]) params.expiry_date_to = dates[1].format('YYYY-MM-DD');
+    fetchBatches(params);
+  };
+
+  // Open reject modal
+  const handleOpenRejectModal = (batchId) => {
+    setRejectingBatchId(batchId);
+    setRejectReason('');
+    setRejectModalVisible(true);
+  };
+
+  // Close reject modal
+  const handleCloseRejectModal = () => {
+    setRejectModalVisible(false);
+    setRejectingBatchId(null);
+    setRejectReason('');
+  };
+
+  // Confirm reject batch
+  const handleConfirmReject = async () => {
+    try {
+      setLoading(true);
+      await productBatchService.reject(rejectingBatchId, rejectReason);
+      message.success('Từ chối lô hàng thành công');
+      handleCloseRejectModal();
+      fetchBatches(getCurrentFilterParams());
+    } catch (error) {
+      message.error(error.message || 'Không thể từ chối lô hàng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle change status
+  const handleChangeStatus = async (batchId, newStatus) => {
+    try {
+      setLoading(true);
+      await productBatchService.changeStatus(batchId, newStatus);
+      message.success('Thay đổi trạng thái thành công');
+      fetchBatches(getCurrentFilterParams());
+    } catch (error) {
+      message.error(error.message || 'Không thể thay đổi trạng thái');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Status menu items for dropdown
+  const getStatusMenuItems = (currentStatus) => {
+    const allStatuses = ['instock', 'onsale', 'near_expiry', 'expired', 'outdate', 'sold'];
+    return allStatuses
+      .filter((s) => s !== currentStatus)
+      .map((status) => ({
+        key: status,
+        label: getStatusLabel(status),
+      }));
   };
 
   // Table columns
@@ -443,6 +548,59 @@ const ProductBatches = () => {
         <Tag color="blue">{items?.length || 0} sản phẩm</Tag>
       ),
     },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 120,
+      render: (date) => date ? dayjs(date).format('DD/MM/YYYY') : '-',
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 180,
+      fixed: 'right',
+      render: (_, record) => {
+        if (record.is_deleted || record.status === 'rejected') {
+          return <Tag color="gray">Đã từ chối</Tag>;
+        }
+        return (
+          <Space size="small">
+            <Dropdown
+              menu={{
+                items: getStatusMenuItems(record.status),
+                onClick: ({ key }) => handleChangeStatus(record._id, key),
+              }}
+              trigger={['click']}
+            >
+              <Tooltip title="Đổi trạng thái">
+                <Button type="text" size="small" icon={<SwapOutlined />}>
+                  <DownOutlined style={{ fontSize: 10 }} />
+                </Button>
+              </Tooltip>
+            </Dropdown>
+            <Tooltip title="Từ chối lô hàng">
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<StopOutlined />}
+                onClick={() => handleOpenRejectModal(record._id)}
+              />
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
   ];
 
   return (
@@ -469,7 +627,7 @@ const ProductBatches = () => {
           </div>
 
           <Row gutter={16}>
-            <Col xs={24} sm={12} md={10}>
+            <Col xs={24} sm={12} md={8}>
               <Input
                 placeholder="Tìm kiếm theo mã lô, sản phẩm..."
                 prefix={<SearchOutlined />}
@@ -477,7 +635,7 @@ const ProductBatches = () => {
                 allowClear
               />
             </Col>
-            <Col xs={24} sm={12} md={8}>
+            <Col xs={24} sm={12} md={6}>
               <Select
                 placeholder="Trạng thái"
                 style={{ width: '100%' }}
@@ -485,10 +643,23 @@ const ProductBatches = () => {
                 onChange={handleStatusFilter}
                 options={[
                   { label: 'Tất cả trạng thái', value: 'all' },
-                  { label: 'Hoạt động', value: 'active' },
+                  { label: 'Trong kho', value: 'instock' },
+                  { label: 'Đang bán', value: 'onsale' },
                   { label: 'Sắp hết hạn', value: 'near_expiry' },
                   { label: 'Hết hạn', value: 'expired' },
+                  { label: 'Quá hạn', value: 'outdate' },
+                  { label: 'Đã bán hết', value: 'sold' },
+                  { label: 'Đã từ chối', value: 'rejected' },
                 ]}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={8}>
+              <RangePicker
+                style={{ width: '100%' }}
+                placeholder={['Từ ngày HSD', 'Đến ngày HSD']}
+                format="DD/MM/YYYY"
+                value={expiryDateRange}
+                onChange={handleExpiryDateFilter}
               />
             </Col>
           </Row>
@@ -1100,6 +1271,36 @@ const ProductBatches = () => {
           </Space>
         )}
       </Drawer>
+
+      {/* Reject Batch Modal */}
+      <Modal
+        title={
+          <Space>
+            <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+            <span>Từ chối lô hàng</span>
+          </Space>
+        }
+        open={rejectModalVisible}
+        onOk={handleConfirmReject}
+        onCancel={handleCloseRejectModal}
+        okText="Xác nhận từ chối"
+        cancelText="Hủy"
+        okButtonProps={{ danger: true, loading: loading }}
+      >
+        <p>Bạn có chắc chắn muốn từ chối lô hàng này? Hành động này sẽ:</p>
+        <ul>
+          <li>Đánh dấu lô hàng là đã từ chối</li>
+          <li>Trừ số lượng tồn kho của các sản phẩm trong lô</li>
+          <li>Ghi nhận vào nhật ký kho</li>
+        </ul>
+        <Input.TextArea
+          placeholder="Nhập lý do từ chối (bắt buộc)"
+          rows={3}
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          style={{ marginTop: 16 }}
+        />
+      </Modal>
     </div>
   );
 };
