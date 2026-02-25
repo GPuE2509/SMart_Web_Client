@@ -19,7 +19,9 @@ axiosInstance.interceptors.response.use(
       // Only redirect if NOT on auth pages
       const currentPath = window.location.pathname;
       const isAuthPage = currentPath.startsWith('/SignIn') || 
-                        currentPath.startsWith('/forgot-password');
+                        currentPath.startsWith('/forgot-password') ||
+                        currentPath.startsWith('/reset-password') ||
+                        currentPath.startsWith('/set-password');
       
       if (!isAuthPage) {
         // Token expired or invalid - redirect to sign in
