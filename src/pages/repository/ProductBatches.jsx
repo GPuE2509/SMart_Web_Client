@@ -201,7 +201,7 @@ const ProductBatches = () => {
 
     const parts = [];
     if (product) parts.push(product.name);
-    if (unit && item.quantity) parts.push(`${item.quantity} ${unit.unit_id?.name || 'đơn vị'}`);
+    if (unit && item.initial_quantity) parts.push(`${item.initial_quantity} ${unit.unit_id?.name || 'đơn vị'}`);
     if (item.import_price) parts.push(`${item.import_price.toLocaleString()}đ`);
     if (item.expiry_date) parts.push(`HSD: ${item.expiry_date.format('DD/MM/YYYY')}`);
 
@@ -267,7 +267,8 @@ const ProductBatches = () => {
     // Populate form with current values
     detailForm.setFieldsValue({
       items: viewingBatch.items.map(item => ({
-        quantity: item.quantity,
+        initial_quantity: item.initial_quantity,
+        current_quantity: item.current_quantity,
         import_price: item.import_price,
         manufacture_date: item.manufacture_date ? dayjs(item.manufacture_date) : null,
         expiry_date: item.expiry_date ? dayjs(item.expiry_date) : null,
@@ -293,7 +294,8 @@ const ProductBatches = () => {
       const updatedItems = viewingBatch.items.map((item, index) => ({
         product_id: item.product_id._id,
         unit_id: item.unit_id._id,
-        quantity: values.items[index].quantity,
+        initial_quantity: values.items[index].initial_quantity,
+        current_quantity: values.items[index].current_quantity,
         import_price: values.items[index].import_price,
         manufacture_date: values.items[index].manufacture_date?.toISOString() || item.manufacture_date,
         expiry_date: values.items[index].expiry_date?.toISOString() || item.expiry_date,
@@ -351,7 +353,7 @@ const ProductBatches = () => {
       // Import new batch - prepare items array with dates
       // Filter out empty/incomplete items
       const validItems = (values.items || []).filter(
-        item => item && item.product_id && item.unit_id && item.quantity
+        item => item && item.product_id && item.unit_id && item.initial_quantity
       );
 
       if (validItems.length === 0) {
@@ -364,7 +366,8 @@ const ProductBatches = () => {
         items: validItems.map(item => ({
           product_id: item.product_id,
           unit_id: item.unit_id,
-          quantity: item.quantity,
+          initial_quantity: item.initial_quantity,
+          current_quantity: item.current_quantity || item.initial_quantity,
           import_price: item.import_price || 0,
           manufacture_date: item.manufacture_date?.toISOString() || null,
           expiry_date: item.expiry_date?.toISOString() || null,
@@ -816,7 +819,7 @@ const ProductBatches = () => {
                               <Col span={12}>
                                 <Form.Item
                                   {...restField}
-                                  name={[name, 'quantity']}
+                                  name={[name, 'initial_quantity']}
                                   label="Số lượng"
                                   rules={[
                                     { required: true, message: 'Vui lòng nhập số lượng' },
@@ -1056,11 +1059,11 @@ const ProductBatches = () => {
                                 </Tag>
                               </Col>
                               <Col span={12}>
-                                <Typography.Text strong>Số lượng:</Typography.Text>
+                                <Typography.Text strong>Số lượng ban đầu:</Typography.Text>
                                 <br />
                                 {isEditingDetail ? (
                                   <Form.Item
-                                    name={[index, 'quantity']}
+                                    name={[index, 'initial_quantity']}
                                     rules={[
                                       { required: true, message: 'Vui lòng nhập số lượng' },
                                       {
@@ -1075,14 +1078,45 @@ const ProductBatches = () => {
                                     style={{ marginBottom: 0 }}
                                   >
                                     <InputNumber
-                                      placeholder="Số lượng"
+                                      placeholder="Số lượng ban đầu"
                                       min={1}
                                       style={{ width: '100%' }}
                                     />
                                   </Form.Item>
                                 ) : (
                                   <Typography.Text>
-                                    {item.quantity?.toLocaleString() || 0}
+                                    {item.initial_quantity?.toLocaleString() || 0}
+                                  </Typography.Text>
+                                )}
+                              </Col>
+                              <Col span={12}>
+                                <Typography.Text strong>Số lượng hiện tại:</Typography.Text>
+                                <br />
+                                {isEditingDetail ? (
+                                  <Form.Item
+                                    name={[index, 'current_quantity']}
+                                    rules={[
+                                      { required: true, message: 'Vui lòng nhập số lượng' },
+                                      {
+                                        validator: (_, value) => {
+                                          if (value < 0) {
+                                            return Promise.reject('Số lượng phải lớn hơn hoặc bằng 0');
+                                          }
+                                          return Promise.resolve();
+                                        },
+                                      },
+                                    ]}
+                                    style={{ marginBottom: 0 }}
+                                  >
+                                    <InputNumber
+                                      placeholder="Số lượng hiện tại"
+                                      min={0}
+                                      style={{ width: '100%' }}
+                                    />
+                                  </Form.Item>
+                                ) : (
+                                  <Typography.Text>
+                                    {item.current_quantity?.toLocaleString() || 0}
                                   </Typography.Text>
                                 )}
                               </Col>
@@ -1116,7 +1150,7 @@ const ProductBatches = () => {
                                 <Typography.Text strong>Thành tiền:</Typography.Text>
                                 <br />
                                 <Typography.Text strong style={{ color: '#1890ff' }}>
-                                  {((item.quantity || 0) * (item.import_price || 0)).toLocaleString()}đ
+                                  {((item.current_quantity || 0) * (item.import_price || 0)).toLocaleString()}đ
                                 </Typography.Text>
                               </Col>
                               <Col span={12}>
@@ -1260,7 +1294,7 @@ const ProductBatches = () => {
                     {viewingBatch.items
                       ?.reduce(
                         (sum, item) =>
-                          sum + (item.quantity || 0) * (item.import_price || 0),
+                          sum + (item.current_quantity || 0) * (item.import_price || 0),
                         0
                       )
                       .toLocaleString()}đ
