@@ -8,6 +8,7 @@ import {
   LockOutlined,
   MenuUnfoldOutlined,
   InboxOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import authService from '../services/authService';
 import { getUserDisplayInfo } from '../utils/roleUtils';
@@ -97,6 +98,12 @@ const RepositoryLayout = () => {
           label: 'Quản lý lô hàng',
         },
       ],
+    },
+    {
+      key: 'attendance',
+      icon: <ClockCircleOutlined />,
+      label: 'Chấm công',
+      onClick: () => navigate('/repository/attendance'),
     },
   ];
 
