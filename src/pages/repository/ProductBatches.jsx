@@ -515,7 +515,7 @@ const ProductBatches = () => {
 
   // Status menu items for dropdown
   const getStatusMenuItems = (currentStatus) => {
-    const allStatuses = ['instock', 'onsale', 'near_expiry', 'expired', 'outdate', 'sold'];
+    const allStatuses = ['instock', 'outdate', 'onsale', 'sold', 'rejected'];
     return allStatuses
       .filter((s) => s !== currentStatus)
       .map((status) => ({
