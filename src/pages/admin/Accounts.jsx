@@ -13,6 +13,8 @@ import {
   Avatar,
   Row,
   Col,
+  Button,
+  Modal,
 } from 'antd';
 import {
   UserOutlined,
@@ -21,8 +23,11 @@ import {
   PhoneOutlined,
   CheckCircleOutlined,
   SafetyOutlined,
+  PlusOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import profileService from '../../services/profileService';
+import userService from '../../services/userService';
 
 const { Title, Text } = Typography;
 
@@ -34,6 +39,9 @@ function Accounts() {
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -166,6 +174,33 @@ function Accounts() {
     return roleMap[role] || { text: role, color: 'default' };
   };
 
+  // Handle open create modal
+  const handleOpenCreateModal = () => {
+    createForm.resetFields();
+    setCreateModalVisible(true);
+  };
+
+  // Handle close create modal
+  const handleCloseCreateModal = () => {
+    setCreateModalVisible(false);
+    createForm.resetFields();
+  };
+
+  // Handle create staff account
+  const handleCreateStaffAccount = async (values) => {
+    setCreateLoading(true);
+    try {
+      const response = await userService.createStaffAccount(values);
+      message.success(response.message || 'Tạo tài khoản thành công! Email xác thực đã được gửi.');
+      handleCloseCreateModal();
+      fetchUsers(); // Refresh the list
+    } catch (error) {
+      message.error(error.message || 'Không thể tạo tài khoản');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   // Table columns
   const columns = [
     {
@@ -272,6 +307,13 @@ function Accounts() {
             <Title level={3} style={{ margin: 0 }}>
               Quản lý tài khoản
             </Title>
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={handleOpenCreateModal}
+            >
+              Tạo tài khoản Staff/Admin
+            </Button>
           </div>
 
           <Space size="middle" style={{ width: '100%', flexWrap: 'wrap' }}>
@@ -325,6 +367,117 @@ function Accounts() {
           />
         </Space>
       </Card>
+
+      {/* Create Staff Account Modal */}
+      <Modal
+        title={
+          <Space>
+            <UserAddOutlined />
+            <span>Tạo tài khoản Staff/Admin</span>
+          </Space>
+        }
+        open={createModalVisible}
+        onCancel={handleCloseCreateModal}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={createForm}
+          layout="vertical"
+          onFinish={handleCreateStaffAccount}
+        >
+          <Form.Item
+            label="Họ và tên"
+            name="full_name"
+            rules={[
+              { required: true, message: 'Vui lòng nhập họ tên' },
+              { min: 2, message: 'Họ tên phải có ít nhất 2 ký tự' }
+            ]}
+          >
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="Nhập họ và tên"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' }
+            ]}
+          >
+            <Input
+              prefix={<MailOutlined />}
+              placeholder="Nhập email"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Số điện thoại"
+            name="phone"
+            rules={[
+              { pattern: /^(0[3|5|7|8|9])+([0-9]{8})$/, message: 'Số điện thoại không hợp lệ' }
+            ]}
+          >
+            <Input
+              prefix={<PhoneOutlined />}
+              placeholder="Nhập số điện thoại (không bắt buộc)"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Vai trò"
+            name="role"
+            rules={[
+              { required: true, message: 'Vui lòng chọn vai trò' }
+            ]}
+          >
+            <Select
+              placeholder="Chọn vai trò"
+              size="large"
+              options={[
+                { label: '👑 Admin', value: 'admin' },
+                { label: '🛒 Nhân viên bán hàng', value: 'seller_staff' },
+                { label: '📦 Nhân viên kho', value: 'repository_staff' },
+              ]}
+            />
+          </Form.Item>
+
+          <div style={{ 
+            background: '#e6f7ff', 
+            border: '1px solid #91d5ff', 
+            padding: '12px', 
+            borderRadius: '4px',
+            marginBottom: '16px'
+          }}>
+            <Text type="secondary">
+              <strong>📧 Lưu ý:</strong> Email xác thực sẽ được gửi đến địa chỉ email trên. 
+              Người dùng cần xác thực email và đặt mật khẩu để kích hoạt tài khoản.
+            </Text>
+          </div>
+
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={handleCloseCreateModal}>
+                Hủy
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                icon={<PlusOutlined />}
+                loading={createLoading}
+              >
+                Tạo tài khoản
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* View User Detail Drawer */}
       <Drawer

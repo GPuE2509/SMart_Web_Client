@@ -6,6 +6,7 @@ import SignIn from '../pages/auth/SignIn';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
 import ChangePassword from '../pages/auth/ChangePassword';
+import SetPassword from '../pages/auth/SetPassword';
 import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import Categories from '../pages/admin/Categories';
@@ -21,6 +22,10 @@ import RepositoryDashboard from '../pages/repository/RepositoryDashboard';
 import RepositoryProductBatches from '../pages/repository/ProductBatches';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
+import RepositoryAttendance from '../pages/repository/RepositoryAttendance';
+import StaffAttendance from '../pages/StaffAttendance';
+import SellerAttendance from '../pages/seller/SellerAttendance';
+import Attendance from '../pages/admin/Attendance';
 
 /**
  * Application router configuration
@@ -50,6 +55,10 @@ const router = createBrowserRouter([
       </PublicRoute>
     ),
   },
+  {
+    path: '/set-password',
+    element: <SetPassword />, // Direct access - no auth check needed
+  },
   // Admin routes with MainLayout
   {
     path: '/admin',
@@ -77,7 +86,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'units',
-        element: <ProductUnits  />,
+        element: <ProductUnits />,
       },
       {
         path: 'orders',
@@ -107,6 +116,10 @@ const router = createBrowserRouter([
         path: 'change-password',
         element: <ChangePassword />,
       },
+      {
+        path: 'attendance',
+        element: <Attendance />,
+      },
     ],
   },
   // Seller routes with separate layout
@@ -125,6 +138,10 @@ const router = createBrowserRouter([
       {
         path: 'change-password',
         element: <ChangePassword />,
+      },
+      {
+        path: 'attendance',
+        element: <SellerAttendance />,
       },
     ],
   },
@@ -148,6 +165,10 @@ const router = createBrowserRouter([
       {
         path: 'change-password',
         element: <ChangePassword />,
+      },
+      {
+        path: 'attendance',
+        element: <RepositoryAttendance />,
       },
     ],
   },
