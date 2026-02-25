@@ -20,6 +20,7 @@ import {
   MailOutlined,
   PhoneOutlined,
   CheckCircleOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons';
 import profileService from '../../services/profileService';
 
@@ -208,6 +209,7 @@ function Accounts() {
             value={role}
             style={{ width: '100%' }}
             size="small"
+            disabled={!record.isVerified}
             onChange={(value) => handleRoleUpdate(record._id, value, role)}
             options={[
               { label: 'Nhân viên bán hàng', value: 'seller_staff' },
@@ -236,6 +238,7 @@ function Accounts() {
             value={status}
             style={{ width: '100%' }}
             size="small"
+            disabled={!record.isVerified}
             onChange={(value) => handleStatusUpdate(record._id, value, status)}
             options={[
               { label: 'Hoạt động', value: 'active' },
@@ -244,6 +247,20 @@ function Accounts() {
           />
         );
       },
+    },
+    {
+      title: 'Xác thực',
+      dataIndex: 'isVerified',
+      key: 'isVerified',
+      width: 130,
+      render: (isVerified) => (
+        <Tag 
+          icon={<SafetyOutlined />} 
+          color={isVerified ? 'success' : 'warning'}
+        >
+          {isVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+        </Tag>
+      ),
     },
   ];
 
@@ -381,6 +398,19 @@ function Accounts() {
                 </Form.Item>
               </Col>
             </Row>
+
+            {/* Verification Status */}
+            <Form.Item label="Trạng thái xác thực" style={{ marginBottom: 12 }}>
+              <div>
+                <Tag 
+                  icon={<SafetyOutlined />} 
+                  color={viewingUser.isVerified ? 'success' : 'warning'}
+                  style={{ fontSize: '14px', padding: '4px 12px' }}
+                >
+                  {viewingUser.isVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+                </Tag>
+              </div>
+            </Form.Item>
 
             {/* Loyalty Points - Only for customers */}
             {viewingUser.role === 'customer' && (
