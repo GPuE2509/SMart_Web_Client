@@ -12,6 +12,8 @@ import {
   ShoppingCartOutlined,
   DollarOutlined,
   AppstoreAddOutlined,
+  InboxOutlined,
+  ClockCircleOutlined,
 } from "@ant-design/icons";
 
 /**
@@ -114,6 +116,12 @@ export const menuItems = [
         label: "Accounts",
         icon: UserOutlined,
         path: "/admin/accounts",
+      },
+      {
+        key: "attendance",
+        label: "Attendance",
+        icon: ClockCircleOutlined,
+        path: "/admin/attendance",
       },
     ],
   },

@@ -9,6 +9,7 @@ import {
   LockOutlined,
   ShoppingOutlined,
   AppstoreOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import authService from '../services/authService';
 import { getUserDisplayInfo } from '../utils/roleUtils';
@@ -58,7 +59,7 @@ const SellerLayout = () => {
       label: 'Thông tin cá nhân',
       onClick: () => navigate('/profile'),
     },
-        {
+    {
       key: 'change-password',
       icon: <LockOutlined />,
       label: 'Change Password',
@@ -87,6 +88,12 @@ const SellerLayout = () => {
       icon: <AppstoreOutlined />,
       label: 'Sản phẩm',
       onClick: () => navigate('/seller/products'),
+    },
+    {
+      key: 'attendance',
+      icon: <ClockCircleOutlined />,
+      label: 'Chấm công',
+      onClick: () => navigate('/seller/attendance'),
     },
   ];
 
