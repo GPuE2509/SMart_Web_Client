@@ -42,6 +42,16 @@ const userService = {
       throw error.response?.data || error;
     }
   },
+
+  // Tạo tài khoản staff/admin mới (gửi email xác thực)
+  createStaffAccount: async (data) => {
+    try {
+      const response = await axiosInstance.post("/users/create-staff", data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default userService;

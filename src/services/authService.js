@@ -70,6 +70,42 @@ const authService = {
       };
     }
   },
+
+  // Verify account invitation token
+  verifyInvitation: async (token) => {
+    try {
+      const response = await axiosInstance.get('/auth/verify-invitation', {
+        params: { token }
+      });
+      return response.data;
+    } catch (error) {
+      const errorData = error.response?.data || {};
+      throw {
+        status: error.response?.status,
+        message: errorData.message,
+        ...errorData
+      };
+    }
+  },
+
+  // Set password for new account after email verification
+  setPasswordForNewAccount: async (token, password, confirmPassword) => {
+    try {
+      const response = await axiosInstance.post('/auth/set-password', {
+        token,
+        password,
+        confirmPassword
+      });
+      return response.data;
+    } catch (error) {
+      const errorData = error.response?.data || {};
+      throw {
+        status: error.response?.status,
+        message: errorData.message,
+        ...errorData
+      };
+    }
+  },
 };
 
 export default authService;

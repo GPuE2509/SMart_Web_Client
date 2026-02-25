@@ -6,6 +6,7 @@ import SignIn from '../pages/auth/SignIn';
 import ForgotPassword from '../pages/auth/ForgotPassword';
 import ResetPassword from '../pages/auth/ResetPassword';
 import ChangePassword from '../pages/auth/ChangePassword';
+import SetPassword from '../pages/auth/SetPassword';
 import Dashboard from '../pages/admin/Dashboard';
 import Products from '../pages/admin/Products';
 import Categories from '../pages/admin/Categories';
@@ -53,6 +54,10 @@ const router = createBrowserRouter([
         <ResetPassword />
       </PublicRoute>
     ),
+  },
+  {
+    path: '/set-password',
+    element: <SetPassword />, // Direct access - no auth check needed
   },
   // Admin routes with MainLayout
   {
