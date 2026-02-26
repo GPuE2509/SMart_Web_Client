@@ -30,6 +30,8 @@ const { RangePicker } = DatePicker;
 
 function StaffAttendance({ userId, userName }) {
   const [loading, setLoading] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkInModalVisible, setCheckInModalVisible] = useState(false);
   const [checkOutModalVisible, setCheckOutModalVisible] = useState(false);
   const [todayAttendance, setTodayAttendance] = useState(null);
@@ -110,10 +112,11 @@ function StaffAttendance({ userId, userName }) {
     const matchConfidence = calculateMatchConfidence(userFaceDescriptor, faceData.descriptor);
     
     if (matchConfidence < 0.6) {
-      message.error(`Khuôn mặt không khớp (độ chính xác: ${(matchConfidence * 100).toFixed(1)}%). Vui lòng thử lại!`);
+      message.error(`Khuôn mặt không khớp. Vui lòng thử lại!`);
       return;
     }
 
+    setIsCheckingIn(true);
     try {
       await attendanceService.checkIn(userId, faceData.descriptor, matchConfidence);
       message.success('Check-in thành công!');
@@ -122,6 +125,8 @@ function StaffAttendance({ userId, userName }) {
       fetchAttendanceHistory();
     } catch (error) {
       message.error(error.message || 'Không thể check-in');
+    } finally {
+      setIsCheckingIn(false);
     }
   };
 
@@ -136,10 +141,11 @@ function StaffAttendance({ userId, userName }) {
     const matchConfidence = calculateMatchConfidence(userFaceDescriptor, faceData.descriptor);
     
     if (matchConfidence < 0.6) {
-      message.error(`Khuôn mặt không khớp (độ chính xác: ${(matchConfidence * 100).toFixed(1)}%). Vui lòng thử lại!`);
+      message.error(`Khuôn mặt không khớp. Vui lòng thử lại!`);
       return;
     }
 
+    setIsCheckingOut(true);
     try {
       await attendanceService.checkOut(userId, faceData.descriptor, matchConfidence);
       message.success('Check-out thành công!');
@@ -148,6 +154,8 @@ function StaffAttendance({ userId, userName }) {
       fetchAttendanceHistory();
     } catch (error) {
       message.error(error.message || 'Không thể check-out');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -336,35 +344,38 @@ function StaffAttendance({ userId, userName }) {
           justifyContent: 'center',
           zIndex: 1000
         }}>
-          <Card style={{ width: 'auto', maxWidth: '1024px', maxHeight: '90vh', overflow: 'auto' }}>
-            <Title level={3} style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <LoginOutlined style={{ marginRight: '8px' }} />
-              Check-in
-            </Title>
-            
-            <Alert
-              style={{ marginBottom: '16px' }}
-              message="Hướng dẫn"
-              description="Nhìn vào camera và giữ khuôn mặt trong khung hình. Hệ thống sẽ tự động nhận diện khuôn mặt của bạn."
-              type="info"
-              showIcon
-            />
-
-            <div style={{ textAlign: 'center' }}>
-              <FaceCapture
-                onCapture={handleCheckIn}
-                captureButtonText="Xác nhận Check-in"
-                showLandmarks={true}
-                referenceDescriptor={userFaceDescriptor}
+          <Spin spinning={isCheckingIn} tip="Đang xử lý...">
+            <Card style={{ width: 'auto', maxWidth: '1024px', maxHeight: '90vh', overflow: 'auto' }}>
+              <Title level={3} style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <LoginOutlined style={{ marginRight: '8px' }} />
+                Check-in
+              </Title>
+              
+              <Alert
+                style={{ marginBottom: '16px' }}
+                message="Hướng dẫn"
+                description="Nhìn vào camera và giữ khuôn mặt trong khung hình. Hệ thống sẽ tự động nhận diện khuôn mặt của bạn."
+                type="info"
+                showIcon
               />
-            </div>
 
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <Button onClick={() => setCheckInModalVisible(false)}>
-                Hủy
-              </Button>
-            </div>
-          </Card>
+              <div style={{ textAlign: 'center' }}>
+                <FaceCapture
+                  onCapture={handleCheckIn}
+                  captureButtonText="Xác nhận Check-in"
+                  showLandmarks={true}
+                  referenceDescriptor={userFaceDescriptor}
+                  disableUpload={true}
+                />
+              </div>
+
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <Button onClick={() => setCheckInModalVisible(false)} disabled={isCheckingIn}>
+                  Hủy
+                </Button>
+              </div>
+            </Card>
+          </Spin>
         </div>
       )}
 
@@ -379,35 +390,38 @@ function StaffAttendance({ userId, userName }) {
           justifyContent: 'center',
           zIndex: 1000
         }}>
-          <Card style={{ width: 'auto', maxWidth: '1024px', maxHeight: '90vh', overflow: 'auto' }}>
-            <Title level={3} style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <LogoutOutlined style={{ marginRight: '8px' }} />
-              Check-out
-            </Title>
-            
-            <Alert
-              style={{ marginBottom: '16px' }}
-              message="Hướng dẫn"
-              description="Nhìn vào camera và giữ khuôn mặt trong khung hình. Hệ thống sẽ tự động nhận diện khuôn mặt của bạn."
-              type="info"
-              showIcon
-            />
-
-            <div style={{ textAlign: 'center' }}>
-              <FaceCapture
-                onCapture={handleCheckOut}
-                captureButtonText="Xác nhận Check-out"
-                showLandmarks={true}
-                referenceDescriptor={userFaceDescriptor}
+          <Spin spinning={isCheckingOut} tip="Đang xử lý...">
+            <Card style={{ width: 'auto', maxWidth: '1024px', maxHeight: '90vh', overflow: 'auto' }}>
+              <Title level={3} style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <LogoutOutlined style={{ marginRight: '8px' }} />
+                Check-out
+              </Title>
+              
+              <Alert
+                style={{ marginBottom: '16px' }}
+                message="Hướng dẫn"
+                description="Nhìn vào camera và giữ khuôn mặt trong khung hình. Hệ thống sẽ tự động nhận diện khuôn mặt của bạn."
+                type="info"
+                showIcon
               />
-            </div>
 
-            <div style={{ textAlign: 'center', marginTop: '16px' }}>
-              <Button onClick={() => setCheckOutModalVisible(false)}>
-                Hủy
-              </Button>
-            </div>
-          </Card>
+              <div style={{ textAlign: 'center' }}>
+                <FaceCapture
+                  onCapture={handleCheckOut}
+                  captureButtonText="Xác nhận Check-out"
+                  showLandmarks={true}
+                  referenceDescriptor={userFaceDescriptor}
+                  disableUpload={true}
+                />
+              </div>
+
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <Button onClick={() => setCheckOutModalVisible(false)} disabled={isCheckingOut}>
+                  Hủy
+                </Button>
+              </div>
+            </Card>
+          </Spin>
         </div>
       )}
     </div>

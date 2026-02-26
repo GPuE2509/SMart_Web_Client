@@ -39,25 +39,52 @@ function Attendance() {
   const [users, setUsers] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [faceRegisterModalVisible, setFaceRegisterModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [capturedFaceData, setCapturedFaceData] = useState(null);
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [roleFilter, setRoleFilter] = useState(null);
   const [searchText, setSearchText] = useState('');
+  const [attendanceSearchText, setAttendanceSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   useEffect(() => {
     fetchStaffUsers();
     fetchAttendance();
+    setIsInitialMount(false);
   }, []);
+
+  // Debounce search - fetch attendance when search text changes
+  useEffect(() => {
+    if (isInitialMount) return;
+    
+    const timer = setTimeout(() => {
+      setCurrentPage(1); // Reset to page 1 when search changes
+      fetchAttendance();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [attendanceSearchText]);
+
+  // Fetch when pagination changes
+  useEffect(() => {
+    if (isInitialMount) return; // Skip on initial mount
+    fetchAttendance();
+  }, [currentPage, pageSize]);
 
   // Fetch all staff users
   const fetchStaffUsers = async () => {
     try {
-      const response = await profileService.getAllUsers({ 
-        role: 'repository_staff' 
-      });
-      setUsers(response.data || []);
+      const response = await profileService.getAllUsers();
+      // Filter to get only staff members (seller_staff and repository_staff)
+      const staffUsers = (response.data || []).filter(user => 
+        ['seller_staff', 'repository_staff'].includes(user.role)
+      );
+      setUsers(staffUsers);
     } catch (error) {
       message.error('Không thể tải danh sách nhân viên');
     }
@@ -75,13 +102,20 @@ function Attendance() {
       if (roleFilter) {
         params.role = roleFilter;
       }
+      if (attendanceSearchText && attendanceSearchText.trim()) {
+        params.search = attendanceSearchText.trim();
+      }
 
       const response = await attendanceService.getAllStaffAttendance(
         params.startDate,
         params.endDate,
-        params.role
+        params.role,
+        params.search,
+        currentPage,
+        pageSize
       );
       setAttendance(response.attendance || []);
+      setTotalRecords(response.pagination?.total || 0);
     } catch (error) {
       message.error('Không thể tải dữ liệu chấm công');
     } finally {
@@ -109,6 +143,7 @@ function Attendance() {
       return;
     }
 
+    setIsSaving(true);
     try {
       await attendanceService.registerStaffFace(
         selectedUser._id,
@@ -122,6 +157,8 @@ function Attendance() {
       fetchStaffUsers();
     } catch (error) {
       message.error(error.message || 'Không thể đăng ký khuôn mặt');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -139,7 +176,14 @@ function Attendance() {
 
   // Apply filters
   const handleApplyFilters = () => {
+    setCurrentPage(1); // Reset to page 1 when filters change
     fetchAttendance();
+  };
+
+  // Handle pagination change
+  const handleTableChange = (pagination) => {
+    setCurrentPage(pagination.current);
+    setPageSize(pagination.pageSize);
   };
 
   // Columns for staff table
@@ -317,6 +361,16 @@ function Attendance() {
       <Tabs defaultActiveKey="1">
         <TabPane tab="Lịch sử chấm công" key="1">
           <Card>
+            <Space className="mb-4" style={{ marginBottom: '16px' }}>
+              <Input
+                placeholder="Tìm theo tên hoặc email..."
+                prefix={<SearchOutlined />}
+                value={attendanceSearchText}
+                onChange={(e) => setAttendanceSearchText(e.target.value)}
+                style={{ width: 250 }}
+                allowClear
+              />
+            </Space>
             <Space className="mb-4" size="middle" wrap>
               <RangePicker
                 value={dateRange}
@@ -348,10 +402,14 @@ function Attendance() {
               loading={loading}
               rowKey="_id"
               pagination={{
-                pageSize: 10,
+                current: currentPage,
+                pageSize: pageSize,
+                total: totalRecords,
                 showSizeChanger: true,
                 showTotal: (total) => `Tổng ${total} bản ghi`,
+                pageSizeOptions: ['10', '20', '50', '100'],
               }}
+              onChange={handleTableChange}
             />
           </Card>
         </TabPane>
@@ -391,16 +449,17 @@ function Attendance() {
         onCancel={handleCloseFaceRegister}
         width={800}
         footer={[
-          <Button key="cancel" onClick={handleCloseFaceRegister}>
+          <Button key="cancel" onClick={handleCloseFaceRegister} disabled={isSaving}>
             Hủy
           </Button>,
           <Button
             key="save"
             type="primary"
             onClick={handleSaveFaceRegistration}
-            disabled={!capturedFaceData}
+            disabled={!capturedFaceData || isSaving}
+            loading={isSaving}
           >
-            Lưu
+            {isSaving ? 'Đang lưu...' : 'Lưu'}
           </Button>,
         ]}
       >

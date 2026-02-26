@@ -2,12 +2,12 @@ import api from './axios';
 
 const attendanceService = {
   // Admin: Register face for staff
-  registerStaffFace: async (userId, faceDescriptor, faceImageUrl) => {
+  registerStaffFace: async (userId, faceDescriptor, faceImage) => {
     try {
       const response = await api.post('/attendance/register-face', {
         userId,
         faceDescriptor,
-        faceImageUrl
+        faceImage
       });
       return response.data;
     } catch (error) {
@@ -58,12 +58,15 @@ const attendanceService = {
   },
 
   // Admin: Get all staff attendance
-  getAllStaffAttendance: async (startDate, endDate, role) => {
+  getAllStaffAttendance: async (startDate, endDate, role, search, page = 1, limit = 10) => {
     try {
       const params = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       if (role) params.role = role;
+      if (search) params.search = search;
+      params.page = page;
+      params.limit = limit;
 
       const response = await api.get('/attendance/all', { params });
       return response.data;
