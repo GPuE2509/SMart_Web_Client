@@ -92,6 +92,26 @@ const profileService = {
       };
     }
   },
+
+  // Update user's face descriptor and image URL
+  updateUserFaceData: async (userId, faceData) => {
+    try {
+      const response = await axiosInstance.patch(
+        `/users/${userId}/face-data`,
+        faceData,
+      );
+      return response.data;
+    } catch (error) {
+      throw {
+        status: error.response?.status,
+        message:
+          error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Lỗi khi cập nhật dữ liệu khuôn mặt",
+        ...error.response?.data,
+      };
+    }
+  },
 };
 
 export default profileService;
