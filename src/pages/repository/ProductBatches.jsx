@@ -870,6 +870,10 @@ const ProductBatches = () => {
                                   name={[name, 'manufacture_date']}
                                   label="Ngày sản xuất"
                                   rules={[
+                                    {
+                                      required: true,
+                                      message: 'Vui lòng chọn ngày sản xuất',
+                                    },
                                     () => ({
                                       validator(_, value) {
                                         if (!value) {
@@ -902,6 +906,10 @@ const ProductBatches = () => {
                                   name={[name, 'expiry_date']}
                                   label="Hạn sử dụng"
                                   rules={[
+                                    {
+                                      required: true,
+                                      message: 'Vui lòng chọn hạn sử dụng',
+                                    },
                                     () => ({
                                       validator(_, value) {
                                         if (!value) {
@@ -1160,6 +1168,10 @@ const ProductBatches = () => {
                                   <Form.Item
                                     name={[index, 'manufacture_date']}
                                     rules={[
+                                      {
+                                        required: true,
+                                        message: 'Vui lòng chọn ngày sản xuất',
+                                      },
                                       () => ({
                                         validator(_, value) {
                                           if (!value) {
@@ -1201,6 +1213,10 @@ const ProductBatches = () => {
                                   <Form.Item
                                     name={[index, 'expiry_date']}
                                     rules={[
+                                      {
+                                        required: true,
+                                        message: 'Vui lòng chọn hạn sử dụng',
+                                      },
                                       () => ({
                                         validator(_, value) {
                                           if (!value) {
