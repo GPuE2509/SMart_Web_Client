@@ -42,6 +42,7 @@ const Coupons = () => {
   const [searchText, setSearchText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [selectedDiscountType, setSelectedDiscountType] = useState(null);
+  const [selectedExpirationStatus, setSelectedExpirationStatus] = useState(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -59,6 +60,12 @@ const Coupons = () => {
   const statusOptions = [
     { value: 'active', label: 'Hoạt động', color: 'green' },
     { value: 'disabled', label: 'Vô hiệu', color: 'red' },
+  ];
+
+  // Expiration status options
+  const expirationOptions = [
+    { value: 'false', label: 'Còn hạn', color: 'green' },
+    { value: 'true', label: 'Hết hạn', color: 'red' },
   ];
 
   useEffect(() => {
@@ -103,6 +110,7 @@ const Coupons = () => {
     if (value) params.code = value;
     if (selectedStatus) params.status = selectedStatus;
     if (selectedDiscountType) params.discount_type = selectedDiscountType;
+    if (selectedExpirationStatus !== null) params.is_expired = selectedExpirationStatus;
     fetchCoupons(params);
   };
 
@@ -112,6 +120,7 @@ const Coupons = () => {
     if (searchText) params.code = searchText;
     if (selectedStatus) params.status = selectedStatus;
     if (type) params.discount_type = type;
+    if (selectedExpirationStatus !== null) params.is_expired = selectedExpirationStatus;
     fetchCoupons(params);
   };
 
@@ -121,6 +130,17 @@ const Coupons = () => {
     if (searchText) params.code = searchText;
     if (status) params.status = status;
     if (selectedDiscountType) params.discount_type = selectedDiscountType;
+    if (selectedExpirationStatus !== null) params.is_expired = selectedExpirationStatus;
+    fetchCoupons(params);
+  };
+
+  const handleExpirationFilter = (expiration) => {
+    setSelectedExpirationStatus(expiration);
+    const params = { page: 1 };
+    if (searchText) params.code = searchText;
+    if (selectedStatus) params.status = selectedStatus;
+    if (selectedDiscountType) params.discount_type = selectedDiscountType;
+    if (expiration !== null) params.is_expired = expiration;
     fetchCoupons(params);
   };
 
@@ -129,6 +149,7 @@ const Coupons = () => {
     if (searchText) params.code = searchText;
     if (selectedStatus) params.status = selectedStatus;
     if (selectedDiscountType) params.discount_type = selectedDiscountType;
+    if (selectedExpirationStatus !== null) params.is_expired = selectedExpirationStatus;
     return params;
   };
 
@@ -140,6 +161,7 @@ const Coupons = () => {
     if (searchText) params.code = searchText;
     if (selectedStatus) params.status = selectedStatus;
     if (selectedDiscountType) params.discount_type = selectedDiscountType;
+    if (selectedExpirationStatus !== null) params.is_expired = selectedExpirationStatus;
     fetchCoupons(params);
   };
 
@@ -238,6 +260,11 @@ const Coupons = () => {
     return `${record.discount_value?.toLocaleString('vi-VN')} đ`;
   };
 
+  const isExpired = (endDate) => {
+    if (!endDate) return false;
+    return dayjs(endDate).isBefore(dayjs());
+  };
+
   const columns = [
     {
       title: 'Mã Coupon',
@@ -301,24 +328,38 @@ const Coupons = () => {
     {
       title: 'Thời gian',
       key: 'date_range',
-      width: 180,
-      render: (_, record) => (
-        <Space direction="vertical" size={0}>
-          <Text style={{ fontSize: 12 }}>
-            Từ: {record.start_date ? dayjs(record.start_date).format('DD/MM/YYYY') : 'N/A'}
-          </Text>
-          <Text style={{ fontSize: 12 }}>
-            Đến: {record.end_date ? dayjs(record.end_date).format('DD/MM/YYYY') : 'N/A'}
-          </Text>
-        </Space>
-      ),
+      width: 200,
+      render: (_, record) => {
+        const expired = isExpired(record.end_date);
+        return (
+          <Space direction="vertical" size={0}>
+            <Text style={{ fontSize: 12 }}>
+              Từ: {record.start_date ? dayjs(record.start_date).format('DD/MM/YYYY') : 'N/A'}
+            </Text>
+            <Text style={{ fontSize: 12 }}>
+              Đến: {record.end_date ? dayjs(record.end_date).format('DD/MM/YYYY') : 'N/A'}
+            </Text>
+            {expired && (
+              <Tag color="red" style={{ marginTop: 4, fontSize: 11 }}>
+                Đã hết hạn
+              </Tag>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status) => {
+      render: (status, record) => {
+        const expired = isExpired(record.end_date);
+        
+        if (expired) {
+          return <Tag color="red">Vô hiệu</Tag>;
+        }
+        
         const statusInfo = statusOptions.find((s) => s.value === status);
         return statusInfo ? <Tag color={statusInfo.color}>{statusInfo.label}</Tag> : status;
       },
@@ -328,34 +369,40 @@ const Coupons = () => {
       key: 'actions',
       width: 120,
       fixed: 'right',
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Chỉnh sửa">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              onClick={() => openDrawer(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title={record.status === 'active' ? "Vô hiệu hóa coupon" : "Kích hoạt coupon"}
-            description={record.status === 'active' ? "Coupon này sẽ bị vô hiệu hóa" : "Coupon này sẽ được kích hoạt lại"}
-            onConfirm={() => handleToggleStatus(record._id, record.status === 'active')}
-            okText="Có"
-            cancelText="Không"
-          >
-            <Tooltip title={record.status === 'active' ? "Vô hiệu hóa" : "Kích hoạt"}>
-              <Button 
-                type="text" 
-                size="small" 
-                danger={record.status === 'active'}
-                style={{ color: record.status === 'active' ? undefined : '#52c41a' }}
-                icon={record.status === 'active' ? <StopOutlined /> : <CheckCircleOutlined />} 
+      render: (_, record) => {
+        const expired = isExpired(record.end_date);
+        
+        return (
+          <Space size="small">
+            <Tooltip title="Chỉnh sửa">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => openDrawer(record)}
               />
             </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
+            <Popconfirm
+              title={record.status === 'active' ? "Vô hiệu hóa coupon" : "Kích hoạt coupon"}
+              description={record.status === 'active' ? "Coupon này sẽ bị vô hiệu hóa" : "Coupon này sẽ được kích hoạt lại"}
+              onConfirm={() => handleToggleStatus(record._id, record.status === 'active')}
+              okText="Có"
+              cancelText="Không"
+              disabled={expired}
+            >
+              <Tooltip title={expired ? "Không thể thay đổi (đã hết hạn)" : (record.status === 'active' ? "Vô hiệu hóa" : "Kích hoạt")}>
+                <Button 
+                  type="text" 
+                  size="small" 
+                  danger={record.status === 'active'}
+                  style={{ color: record.status === 'active' ? undefined : '#52c41a' }}
+                  icon={record.status === 'active' ? <StopOutlined /> : <CheckCircleOutlined />} 
+                  disabled={expired}
+                />
+              </Tooltip>
+            </Popconfirm>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -407,6 +454,20 @@ const Coupons = () => {
               options={[
                 { label: 'Tất cả trạng thái', value: null },
                 ...statusOptions.map((opt) => ({
+                  label: opt.label,
+                  value: opt.value,
+                })),
+              ]}
+            />
+            <Select
+              placeholder="Thời hạn"
+              style={{ width: 150 }}
+              value={selectedExpirationStatus}
+              onChange={handleExpirationFilter}
+              allowClear
+              options={[
+                { label: 'Tất cả', value: null },
+                ...expirationOptions.map((opt) => ({
                   label: opt.label,
                   value: opt.value,
                 })),
