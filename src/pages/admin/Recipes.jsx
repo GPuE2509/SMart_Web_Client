@@ -20,7 +20,6 @@ import {
   Tooltip,
   Divider,
   Avatar,
-  Badge,
   Empty,
   Spin,
   List,
@@ -447,89 +446,54 @@ const Recipes = () => {
   // ── Render ─────────────────────────────────────────────────────
   return (
     <div>
-      {/* ── Page Header ── */}
-      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Space size={12} align="center">
-          <div
-            style={{
-              background: 'linear-gradient(135deg, #52c41a 0%, #95de64 100%)',
-              borderRadius: 10,
-              width: 42,
-              height: 42,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}
-          >
-            <BookOutlined style={{ fontSize: 20, color: '#fff' }} />
-          </div>
-          <div>
-            <Title level={3} style={{ margin: 0, lineHeight: '26px' }}>
+      <Card>
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Title level={3} style={{ margin: 0 }}>
               Quản lý công thức
             </Title>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              Thêm, chỉnh sửa và quản lý các công thức nấu ăn
-            </Text>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => handleOpenDrawer()}
+            >
+              Thêm công thức
+            </Button>
           </div>
-        </Space>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          size="large"
-          onClick={() => handleOpenDrawer()}
-        >
-          Thêm công thức
-        </Button>
-      </div>
 
-      {/* ── Main Card ── */}
-      <Card style={{ borderRadius: 12 }}>
-        {/* Filter toolbar */}
-        <Row justify="space-between" align="middle" gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          <Col flex="auto">
-            <Space size={10} wrap>
-              <Input
-                placeholder="Tìm theo tên hoặc mô tả..."
-                prefix={<SearchOutlined style={{ color: '#b0b0b0' }} />}
-                value={searchText}
-                onChange={handleSearchChange}
-                allowClear
-                onClear={() => fetchRecipes({ page: 1, search: '' })}
-                style={{ width: 320 }}
-              />
-              <Select
-                value={statusFilter}
-                onChange={setStatusFilter}
-                style={{ width: 150 }}
-                options={[
-                  { label: 'Tất cả trạng thái', value: 'all' },
-                  { label: '✅ Hoạt động', value: 'active' },
-                  { label: '🔴 Ngừng', value: 'inactive' },
-                ]}
-              />
-              <Select
-                value={sortBy}
-                onChange={handleSortChange}
-                style={{ width: 145 }}
-                options={[
-                  { label: 'Mới nhất', value: 'newest' },
-                  { label: 'Cũ nhất', value: 'oldest' },
-                  { label: 'Theo tên A–Z', value: 'title' },
-                ]}
-              />
-            </Space>
-          </Col>
-          <Col>
-            <Badge
-              count={`${pagination.total} công thức`}
-              style={{ backgroundColor: '#e6f4ff', color: '#1677ff', fontWeight: 500, fontSize: 13, padding: '0 10px' }}
+          <Space size="middle" style={{ width: '100%', flexWrap: 'wrap' }}>
+            <Input
+              placeholder="Tìm theo tên hoặc mô tả..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={handleSearchChange}
+              allowClear
+              onClear={() => fetchRecipes({ page: 1, search: '' })}
+              style={{ width: 320 }}
             />
-          </Col>
-        </Row>
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 150 }}
+              options={[
+                { label: 'Tất cả trạng thái', value: 'all' },
+                { label: 'Hoạt động', value: 'active' },
+                { label: 'Ngừng', value: 'inactive' },
+              ]}
+            />
+            <Select
+              value={sortBy}
+              onChange={handleSortChange}
+              style={{ width: 145 }}
+              options={[
+                { label: 'Mới nhất', value: 'newest' },
+                { label: 'Cũ nhất', value: 'oldest' },
+                { label: 'Theo tên A–Z', value: 'title' },
+              ]}
+            />
+          </Space>
 
-        {/* Table */}
-        <Table
+          <Table
           columns={columns}
           dataSource={displayedRecipes}
           rowKey="_id"
@@ -544,8 +508,8 @@ const Recipes = () => {
           }}
           onChange={handleTableChange}
           rowClassName={(r) => (!r.is_active ? 'recipe-row-disabled' : '')}
-          style={{ '--disabled-bg': '#fafafa' }}
         />
+        </Space>
       </Card>
 
       {/* ── View Recipe Modal ── */}
@@ -694,28 +658,8 @@ const Recipes = () => {
                     <List
                       dataSource={steps}
                       renderItem={(step, i) => (
-                        <List.Item style={{ padding: '8px 0', border: 'none', alignItems: 'flex-start' }}>
-                          <Space align="start" size={10}>
-                            <div
-                              style={{
-                                minWidth: 26,
-                                height: 26,
-                                borderRadius: '50%',
-                                background: step.match(/^Bước\s*\d+/i) ? '#52c41a' : '#1677ff',
-                                color: '#fff',
-                                fontSize: 12,
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                                marginTop: 1,
-                              }}
-                            >
-                              {i + 1}
-                            </div>
-                            <Text style={{ fontSize: 14, lineHeight: '24px' }}>{step}</Text>
-                          </Space>
+                        <List.Item style={{ padding: '6px 0', border: 'none' }}>
+                          <Text style={{ fontSize: 14, lineHeight: '24px' }}>{step}</Text>
                         </List.Item>
                       )}
                     />
@@ -735,21 +679,7 @@ const Recipes = () => {
 
       {/* ── Add / Edit Drawer ── */}
       <Drawer
-        title={
-          <Space size={8}>
-            <div
-              style={{
-                width: 6,
-                height: 22,
-                background: editingRecipe ? '#fa8c16' : '#52c41a',
-                borderRadius: 3,
-              }}
-            />
-            <Text strong style={{ fontSize: 16 }}>
-              {editingRecipe ? 'Chỉnh sửa công thức' : 'Thêm công thức mới'}
-            </Text>
-          </Space>
-        }
+        title={editingRecipe ? 'Sửa công thức' : 'Thêm công thức mới'}
         open={drawerVisible}
         onClose={handleCloseDrawer}
         width={780}
