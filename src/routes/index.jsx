@@ -15,6 +15,7 @@ import Accounts from '../pages/admin/Accounts';
 import Profile from '../pages/admin/Profile';
 import Coupons from '../pages/admin/Coupons';
 import Reports from '../pages/admin/Reports';
+import Recipes from '../pages/admin/Recipes';
 import Orders from '../pages/admin/Orders';
 import Payslips from '../pages/admin/Payslips';
 import SellerDashboard from '../pages/seller/SellerDashboard';
@@ -107,6 +108,10 @@ const router = createBrowserRouter([
       {
         path: 'reports',
         element: <Reports />,
+      },
+      {
+        path: 'recipes',
+        element: <Recipes />,
       },
       {
         path: 'profile',

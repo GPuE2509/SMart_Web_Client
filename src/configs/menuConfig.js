@@ -14,6 +14,7 @@ import {
   AppstoreAddOutlined,
   InboxOutlined,
   ClockCircleOutlined,
+  BookOutlined,
 } from "@ant-design/icons";
 
 /**
@@ -65,6 +66,12 @@ export const menuItems = [
         label: "Units",
         icon: AppstoreAddOutlined,
         path: "/admin/units",
+      },
+      {
+        key: "recipes",
+        label: "Recipes",
+        icon: BookOutlined,
+        path: "/admin/recipes",
       },
     ],
   },
