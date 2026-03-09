@@ -20,6 +20,7 @@ import {
   Modal,
   Dropdown,
   Tooltip,
+  Checkbox,
 } from 'antd';
 import {
   PlusOutlined,
@@ -31,11 +32,13 @@ import {
   StopOutlined,
   SwapOutlined,
   ExclamationCircleOutlined,
+  BulbOutlined,
 } from '@ant-design/icons';
 import productBatchService from '../../services/productBatchService';
 import productService from '../../services/productService';
 import categoryService from '../../services/categoryService';
 import productUnitService from '../../services/productUnitService';
+import SmartSuggestions from '../../components/SmartSuggestions';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
@@ -48,9 +51,11 @@ const ProductBatches = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [detailDrawerVisible, setDetailDrawerVisible] = useState(false);
   const [viewingBatch, setViewingBatch] = useState(null);
+  const [smartSuggestionsVisible, setSmartSuggestionsVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [expiryDateRange, setExpiryDateRange] = useState(null);
+  const [showDeleted, setShowDeleted] = useState(false);
   // Store products and units for each item dynamically
   const [itemProducts, setItemProducts] = useState({});
   const [itemUnits, setItemUnits] = useState({});
@@ -97,6 +102,8 @@ const ProductBatches = () => {
         page: params.page || pagination.current,
         limit: params.limit || pagination.pageSize,
         ...params,
+        // Use params.include_deleted if provided, otherwise use state
+        include_deleted: params.include_deleted !== undefined ? params.include_deleted : showDeleted,
       };
 
       const response = await productBatchService.getAll(queryParams);
@@ -130,6 +137,22 @@ const ProductBatches = () => {
     const params = { page: 1 };
     if (searchText) params.search = searchText;
     if (value && value !== 'all') params.status = value;
+    fetchBatches(params);
+  };
+
+  // Show deleted handler
+  const handleShowDeletedChange = (checked) => {
+    setShowDeleted(checked);
+    const params = { 
+      page: 1,
+      include_deleted: checked,  // Pass directly instead of relying on state
+    };
+    if (searchText) params.search = searchText;
+    if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+    if (expiryDateRange) {
+      if (expiryDateRange[0]) params.expiry_date_from = expiryDateRange[0].format('YYYY-MM-DD');
+      if (expiryDateRange[1]) params.expiry_date_to = expiryDateRange[1].format('YYYY-MM-DD');
+    }
     fetchBatches(params);
   };
 
@@ -447,6 +470,7 @@ const ProductBatches = () => {
     const params = {
       page: pagination.current,
       limit: pagination.pageSize,
+      include_deleted: showDeleted,
     };
     if (searchText) params.search = searchText;
     if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
@@ -513,10 +537,55 @@ const ProductBatches = () => {
     }
   };
 
-  // Status menu items for dropdown
-  const getStatusMenuItems = (currentStatus) => {
-    const allStatuses = ['instock', 'outdate', 'onsale', 'sold', 'rejected'];
-    return allStatuses
+  // Format status display with item counts
+  const formatStatusDisplay = (record) => {
+    if (!record.status_summary) {
+      return getStatusLabel(record.status);
+    }
+
+    const counts = record.status_summary;
+    const primary = record.status;
+
+    // If all sold, just show "Đã bán hết"
+    if (primary === 'sold') {
+      return 'Đã bán hết';
+    }
+
+    // If rejected, just show "Đã từ chối"
+    if (primary === 'rejected') {
+      return 'Đã từ chối';
+    }
+
+    // Build display string with primary status and additional info
+    let display = getStatusLabel(primary);
+    const extras = [];
+
+    // Add outdate count if any
+    if (counts.outdate > 0) {
+      extras.push(`${counts.outdate} quá hạn`);
+    }
+
+    // Add sold count if any (but not all)
+    if (counts.sold > 0) {
+      extras.push(`${counts.sold} đã bán hết`);
+    }
+
+    if (extras.length > 0) {
+      display += ` (${extras.join(', ')})`;
+    }
+
+    return display;
+  };
+
+  // Status menu items for dropdown - only allow instock and onsale
+  const getStatusMenuItems = (currentStatus, canChange) => {
+    // Cannot change status if rejected or all sold
+    if (!canChange) {
+      return [];
+    }
+
+    const allowedStatuses = ['instock', 'onsale'];
+    return allowedStatuses
       .filter((s) => s !== currentStatus)
       .map((status) => ({
         key: status,
@@ -562,9 +631,9 @@ const ProductBatches = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>{getStatusLabel(status)}</Tag>
+      width: 200,
+      render: (status, record) => (
+        <Tag color={getStatusColor(status)}>{formatStatusDisplay(record)}</Tag>
       ),
     },
     {
@@ -573,24 +642,36 @@ const ProductBatches = () => {
       width: 180,
       fixed: 'right',
       render: (_, record) => {
+        // Cannot perform actions if deleted or rejected
         if (record.is_deleted || record.status === 'rejected') {
           return <Tag color="gray">Đã từ chối</Tag>;
         }
+
+        // Cannot change status if all sold
+        if (record.status === 'sold') {
+          return <Tag color="purple">Đã bán hết</Tag>;
+        }
+
+        const canChange = record.can_change_status !== false;
+        const menuItems = getStatusMenuItems(record.status, canChange);
+
         return (
           <Space size="small">
-            <Dropdown
-              menu={{
-                items: getStatusMenuItems(record.status),
-                onClick: ({ key }) => handleChangeStatus(record._id, key),
-              }}
-              trigger={['click']}
-            >
-              <Tooltip title="Đổi trạng thái">
-                <Button type="text" size="small" icon={<SwapOutlined />}>
-                  <DownOutlined style={{ fontSize: 10 }} />
-                </Button>
-              </Tooltip>
-            </Dropdown>
+            {canChange && menuItems.length > 0 && (
+              <Dropdown
+                menu={{
+                  items: menuItems,
+                  onClick: ({ key }) => handleChangeStatus(record._id, key),
+                }}
+                trigger={['click']}
+              >
+                <Tooltip title="Đổi trạng thái">
+                  <Button type="text" size="small" icon={<SwapOutlined />}>
+                    <DownOutlined style={{ fontSize: 10 }} />
+                  </Button>
+                </Tooltip>
+              </Dropdown>
+            )}
             <Tooltip title="Từ chối lô hàng">
               <Button
                 type="text"
@@ -620,13 +701,26 @@ const ProductBatches = () => {
             <Title level={3} style={{ margin: 0 }}>
               Quản lý lô hàng
             </Title>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleOpenImportDrawer}
-            >
-              Nhập lô hàng
-            </Button>
+            <Space>
+              <Button
+                icon={<BulbOutlined />}
+                onClick={() => setSmartSuggestionsVisible(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                }}
+              >
+                Gợi ý thông minh
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleOpenImportDrawer}
+              >
+                Nhập lô hàng
+              </Button>
+            </Space>
           </div>
 
           <Row gutter={16}>
@@ -650,7 +744,6 @@ const ProductBatches = () => {
                   { label: 'Đang bán', value: 'onsale' },
                   { label: 'Sắp hết hạn', value: 'near_expiry' },
                   { label: 'Hết hạn', value: 'expired' },
-                  { label: 'Quá hạn', value: 'outdate' },
                   { label: 'Đã bán hết', value: 'sold' },
                   { label: 'Đã từ chối', value: 'rejected' },
                 ]}
@@ -664,6 +757,14 @@ const ProductBatches = () => {
                 value={expiryDateRange}
                 onChange={handleExpiryDateFilter}
               />
+            </Col>
+            <Col xs={24} sm={12} md={2}>
+              <Checkbox
+                checked={showDeleted}
+                onChange={(e) => handleShowDeletedChange(e.target.checked)}
+              >
+                Hiển thị lô đã từ chối
+              </Checkbox>
             </Col>
           </Row>
 
@@ -989,9 +1090,11 @@ const ProductBatches = () => {
         extra={
           <Space>
             {!isEditingDetail ? (
-              <Button type="primary" onClick={handleStartEditDetail}>
-                Chỉnh sửa
-              </Button>
+              !viewingBatch?.is_deleted && (
+                <Button type="primary" onClick={handleStartEditDetail}>
+                  Chỉnh sửa
+                </Button>
+              )
             ) : (
               <>
                 <Button onClick={handleCancelEditDetail}>Hủy</Button>
@@ -1021,6 +1124,49 @@ const ProductBatches = () => {
               </Row>
             </Card>
 
+            {/* Rejection Info - Only show if batch is rejected */}
+            {viewingBatch.is_deleted && viewingBatch.rejection_note && (
+              <Card 
+                title={
+                  <Space>
+                    <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                    <span>Thông tin từ chối</span>
+                  </Space>
+                }
+                size="small"
+                style={{ 
+                  borderColor: '#ff4d4f',
+                  backgroundColor: '#fff2f0'
+                }}
+              >
+                <Row gutter={[16, 8]}>
+                  <Col span={24}>
+                    <Typography.Text strong>Lý do từ chối:</Typography.Text>
+                    <br />
+                    <Typography.Text>{viewingBatch.rejection_note}</Typography.Text>
+                  </Col>
+                  {viewingBatch.rejection_date && (
+                    <Col span={12}>
+                      <Typography.Text strong>Ngày từ chối:</Typography.Text>
+                      <br />
+                      <Typography.Text>
+                        {dayjs(viewingBatch.rejection_date).format('DD/MM/YYYY HH:mm')}
+                      </Typography.Text>
+                    </Col>
+                  )}
+                  {viewingBatch.rejection_by && (
+                    <Col span={12}>
+                      <Typography.Text strong>Người từ chối:</Typography.Text>
+                      <br />
+                      <Typography.Text>
+                        {viewingBatch.rejection_by.name || viewingBatch.rejection_by.email}
+                      </Typography.Text>
+                    </Col>
+                  )}
+                </Row>
+              </Card>
+            )}
+
             {/* Items List */}
             <Card title="Danh sách sản phẩm" size="small">
               <Form form={detailForm} layout="vertical">
@@ -1038,6 +1184,9 @@ const ProductBatches = () => {
                               <Typography.Text type="secondary" style={{ fontSize: 13 }}>
                                 - {item.product_id?.name || 'N/A'}
                               </Typography.Text>
+                              <Tag color={getStatusColor(item.status || 'instock')} style={{ fontSize: 11 }}>
+                                {getStatusLabel(item.status || 'instock')}
+                              </Tag>
                             </Space>
                           }
                           extra={
@@ -1062,9 +1211,14 @@ const ProductBatches = () => {
                               <Col span={12}>
                                 <Typography.Text strong>Trạng thái:</Typography.Text>
                                 <br />
-                                <Tag color={getStatusColor(getItemStatus(item.expiry_date))}>
-                                  {getStatusLabel(getItemStatus(item.expiry_date))}
-                                </Tag>
+                                <Space>
+                                  <Tag color={getStatusColor(item.status || 'instock')}>
+                                    {getStatusLabel(item.status || 'instock')}
+                                  </Tag>
+                                  <Tag color={getStatusColor(getItemStatus(item.expiry_date))}>
+                                    {getStatusLabel(getItemStatus(item.expiry_date))}
+                                  </Tag>
+                                </Space>
                               </Col>
                               <Col span={12}>
                                 <Typography.Text strong>Số lượng ban đầu:</Typography.Text>
@@ -1351,6 +1505,12 @@ const ProductBatches = () => {
           style={{ marginTop: 16 }}
         />
       </Modal>
+
+      {/* Smart Replenishment Suggestions Modal */}
+      <SmartSuggestions
+        visible={smartSuggestionsVisible}
+        onClose={() => setSmartSuggestionsVisible(false)}
+      />
     </div>
   );
 };
