@@ -86,7 +86,7 @@ const ResetPassword = () => {
   return (
     <div className="SignIn-container" style={{ backgroundImage: `url(${backgroundImg})` }}>
       <Card className="SignIn-card" bordered={false}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <div className="SignIn-header">
             <div className="logo-container">
               <img src={logo} alt="SMart Logo" className="SignIn-logo" />

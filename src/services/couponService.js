@@ -15,7 +15,7 @@ const couponService = {
   getById: async (id) => {
     try {
       const response = await axiosInstance.get(`/coupons/${id}`);
-      return response.data;
+      return response.data;    
     } catch (error) {
       throw error.response?.data || error;
     }

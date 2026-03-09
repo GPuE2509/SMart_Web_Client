@@ -97,7 +97,7 @@ function SetPassword() {
     return (
       <div className="signin-container">
         <Card className="signin-card" style={{ textAlign: 'center' }}>
-          <Space direction="vertical" size="large">
+          <Space orientation="vertical" size="large">
             <LoadingOutlined style={{ fontSize: 48, color: '#1890ff' }} />
             <Title level={4}>Đang xác thực...</Title>
             <Text type="secondary">Vui lòng đợi trong giây lát</Text>

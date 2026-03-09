@@ -53,9 +53,49 @@ export const getSalesSummary = async (params = {}) => {
   return response.data;
 };
 
+/**
+ * Get Rescue Efficiency Report
+ * Recovered revenue, loss of cost, successful rescue rate
+ * @param {Object} params - { start_date, end_date }
+ * @returns {Promise} Rescue efficiency data
+ */
+export const getRescueEfficiencyReport = async (params = {}) => {
+  const response = await axiosInstance.get("/admin/reports/rescue-efficiency", {
+    params,
+  });
+  return response.data;
+};
+
+/**
+ * Get Cash Flow Chart (inflows: sales, outflows: inventory + operations)
+ * @param {Object} params - { period, start_date, end_date }
+ * @returns {Promise} Cash flow chart data
+ */
+export const getCashFlowChart = async (params = {}) => {
+  const response = await axiosInstance.get("/admin/reports/cash-flow", {
+    params,
+  });
+  return response.data;
+};
+
+/**
+ * Get Cost vs Retail Price Trend Chart (multi-line)
+ * @param {Object} params - { period, start_date, end_date }
+ * @returns {Promise} Cost vs retail trend data
+ */
+export const getCostRetailTrendChart = async (params = {}) => {
+  const response = await axiosInstance.get("/admin/reports/cost-retail-trend", {
+    params,
+  });
+  return response.data;
+};
+
 export default {
   getRevenueAndProfitChart,
   getTopSellingProducts,
   getPeakHoursHeatmap,
   getSalesSummary,
+  getRescueEfficiencyReport,
+  getCashFlowChart,
+  getCostRetailTrendChart,
 };
