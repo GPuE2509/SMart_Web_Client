@@ -64,6 +64,18 @@ const productBatchService = {
       throw error.response?.data || error;
     }
   },
+
+  // Lấy gợi ý nhập hàng thông minh từ AI
+  getSmartSuggestions: async (params = {}) => {
+    try {
+      const response = await axiosInstance.get("/batches/suggestions/smart", {
+        params,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default productBatchService;
