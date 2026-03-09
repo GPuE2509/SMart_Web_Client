@@ -128,7 +128,7 @@ function Reports() {
         const flatData = (response.data.heatmap || []).flatMap((day) =>
           day.hours.map((h) => ({
             day_name: day.day_name,
-            hour: h.hour,
+            hour: `${h.hour}h`,
             order_count: h.order_count,
             total_revenue: h.total_revenue,
           }))
@@ -175,7 +175,7 @@ function Reports() {
   };
 
 
-  // Peak Hours Heatmap Config (v2 API)
+  // Peak Hours Heatmap Config — flush cells, vertical legend on right (like reference image)
   const peakHoursConfig = {
     data: peakHours.data || [],
     xField: 'hour',
@@ -183,25 +183,41 @@ function Reports() {
     colorField: 'order_count',
     scale: {
       color: {
-        range: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127'],
+        range: ['#fff5f0', '#fcc4b8', '#fb8172', '#ef3b2c', '#99000d'],
       },
     },
-    label: {
-      text: (d) => (d.order_count > 0 ? d.order_count : ''),
-      style: { fill: '#555', fontSize: 9 },
+    style: {
+      inset: 0.5,
     },
+    label: false,
     tooltip: {
-      title: (d) => `${d.day_name} - ${d.hour}:00`,
+      title: (d) => `${d.day_name} — ${d.hour}`,
       items: [
-        { field: 'order_count', name: 'Số đơn' },
+        { field: 'order_count', name: 'Số đơn hàng' },
         { field: 'total_revenue', name: 'Doanh thu', valueFormatter: formatCurrency },
       ],
     },
-    height: 280,
-    legend: { position: 'bottom' },
+    height: 300,
+    legend: {
+      color: {
+        position: 'right',
+        layout: { justifyContent: 'center' },
+        ribbon: { len: 200, size: 16 },
+      },
+    },
     axis: {
-      x: { title: 'Giờ trong ngày' },
-      y: { title: 'Ngày trong tuần' },
+      x: {
+        position: 'top',
+        title: false,
+        labelSpacing: 4,
+        tick: false,
+        labelFontSize: 11,
+      },
+      y: {
+        title: false,
+        tick: false,
+        labelFontSize: 11,
+      },
     },
   };
 
@@ -250,25 +266,8 @@ function Reports() {
     <div>
       {/* Page Header */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #1677ff 0%, #4096ff 100%)',
-            borderRadius: 10,
-            width: 42,
-            height: 42,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <BarChartOutlined style={{ fontSize: 20, color: '#fff' }} />
-        </div>
         <div>
           <Title level={3} style={{ margin: 0, lineHeight: '26px' }}>Báo cáo doanh số</Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            Phân tích doanh thu, lợi nhuận và hành vi mua hàng
-          </Text>
         </div>
       </div>
 
