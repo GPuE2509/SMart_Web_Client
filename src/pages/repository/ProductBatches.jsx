@@ -21,6 +21,7 @@ import {
   Dropdown,
   Tooltip,
   Checkbox,
+  Switch,
 } from 'antd';
 import {
   PlusOutlined,
@@ -33,6 +34,8 @@ import {
   SwapOutlined,
   ExclamationCircleOutlined,
   BulbOutlined,
+  PrinterOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import productBatchService from '../../services/productBatchService';
 import productService from '../../services/productService';
@@ -143,7 +146,7 @@ const ProductBatches = () => {
   // Show deleted handler
   const handleShowDeletedChange = (checked) => {
     setShowDeleted(checked);
-    const params = { 
+    const params = {
       page: 1,
       include_deleted: checked,  // Pass directly instead of relying on state
     };
@@ -259,14 +262,14 @@ const ProductBatches = () => {
     try {
       setLoading(true);
       const response = await productBatchService.getById(batchId);
-      
+
       // Set all items collapsed by default
       const collapsedState = {};
       response.data?.items?.forEach((_, index) => {
         collapsedState[index] = true;
       });
       setDetailCollapsedItems(collapsedState);
-      
+
       setViewingBatch(response.data);
       setDetailDrawerVisible(true);
     } catch {
@@ -327,13 +330,13 @@ const ProductBatches = () => {
 
       await productBatchService.update(viewingBatch._id, { items: updatedItems });
       message.success('Cập nhật lô hàng thành công!');
-      
+
       // Refresh detail view
       const response = await productBatchService.getById(viewingBatch._id);
       setViewingBatch(response.data);
       setIsEditingDetail(false);
       detailForm.resetFields();
-      
+
       // Refresh list
       const params = {
         page: pagination.current,
@@ -451,11 +454,11 @@ const ProductBatches = () => {
   // Get item status based on expiry date
   const getItemStatus = (expiryDate) => {
     if (!expiryDate) return 'active';
-    
+
     const now = new Date();
     const expiry = new Date(expiryDate);
     const daysUntilExpiry = Math.ceil((expiry - now) / (1000 * 60 * 60 * 24));
-    
+
     if (daysUntilExpiry < 0) {
       return 'expired';
     } else if (daysUntilExpiry <= 30) {
@@ -535,6 +538,282 @@ const ProductBatches = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Toggle rescue pricing for an item
+  const handleToggleRescuePricing = async (batchId, itemId, enabled) => {
+    try {
+      setLoading(true);
+      const response = await productBatchService.toggleRescuePricing(batchId, itemId, enabled);
+
+      // Show detailed message based on response
+      if (enabled) {
+        const item = response.data;
+        if (item.rescue_pricing_active && item.rescue_discount_percentage > 0) {
+          message.success(`Đã bật giảm giá tự động: ${item.rescue_discount_percentage}%`, 3);
+        } else {
+          message.info('Đã bật giảm giá tự động (sản phẩm chưa trong thời gian giảm giá)', 3);
+        }
+      } else {
+        message.success('Đã tắt giảm giá tự động');
+      }
+
+      // Refresh detail view if open
+      if (viewingBatch && viewingBatch._id === batchId) {
+        const refreshResponse = await productBatchService.getById(batchId);
+        setViewingBatch(refreshResponse.data);
+      }
+
+      // Refresh list
+      fetchBatches(getCurrentFilterParams());
+    } catch (error) {
+      message.error(error.message || 'Không thể thay đổi cài đặt giảm giá');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Print label for item
+  const handlePrintLabel = async (batchId, itemId, itemName) => {
+    try {
+      setLoading(true);
+      const response = await productBatchService.getPrintLabel(batchId, itemId);
+      const labelData = response.data;
+
+      // Create label content
+      const labelContent = `
+        <div class="label">
+          ${labelData.rescuePricing ? `
+            <div class="discount-badge">💰 KHUYẾN MÃI</div>
+          ` : ''}
+          
+          <div class="product-info">
+            <div class="product-name">${labelData.productName}</div>
+            <div class="product-unit">${labelData.unitName}</div>
+          </div>
+          
+          <div class="price-container">
+            ${labelData.rescuePricing ? `
+              <div class="price-row">
+                <span class="original-price">${Math.round(labelData.originalPrice || 0).toLocaleString()}</span>
+                <span class="original-price">đ</span>
+                <span class="discount-percent">-${labelData.discountPercentage}%</span>
+              </div>
+            ` : ''}
+            <div class="final-price-row">
+              <span class="final-price">${Math.round(labelData.finalPrice || 0).toLocaleString()}</span>
+              <span class="currency">đ</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Duplicate label 8 times (2x4 grid on A4 - landscape labels)
+      const labelsGrid = Array(8).fill(labelContent).join('');
+
+      // Create a simple print window
+      const printWindow = window.open('', '_blank');
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Nhãn Giá - ${itemName}</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 5mm;
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body {
+              font-family: Arial, sans-serif;
+              width: 210mm;
+              background: white;
+              margin: 0 auto;
+            }
+            .page {
+              width: 210mm;
+              min-height: 297mm;
+              display: grid;
+              grid-template-columns: repeat(2, 90mm);
+              grid-template-rows: repeat(4, 60mm);
+              gap: 5mm;
+              padding: 10mm;
+              page-break-after: always;
+            }
+            .label {
+              position: relative;
+              width: 90mm;
+              height: 60mm;
+              display: flex;
+              flex-direction: row;
+              padding: 4mm;
+              background: #FFF4E6;
+              border: 1px solid #ff4d4f;
+            }
+            
+            /* Discount badge - top right corner */
+            .discount-badge {
+              position: absolute;
+              top: 0;
+              right: 0;
+              background: #ff4d4f;
+              color: white;
+              padding: 2mm 4mm;
+              font-weight: bold;
+              font-size: 12px;
+              border-bottom-left-radius: 3mm;
+            }
+            
+            /* Product info section - left side */
+            .product-info {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              padding-right: 4mm;
+              margin-top: 8mm;
+            }
+            
+            .product-name {
+              font-size: 25px;
+              font-weight: bold;
+              line-height: 1.3;
+              margin-bottom: 2mm;
+              color: #000;
+              text-transform: uppercase;
+            }
+            
+            .product-unit {
+              font-size: 20px;
+              color: #666;
+            }
+            
+            /* Price container - right side */
+            .price-container {
+              flex: 1;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              border-left: 2px solid #ff4d4f;
+              padding-left: 4mm;
+            }
+            
+            .price-row {
+              display: flex;
+              align-items: center;
+              gap: 2mm;
+              margin-bottom: 2mm;
+            }
+            
+            .original-price {
+              text-decoration: line-through;
+              color: #999;
+              font-size: 13px;
+            }
+            
+            .discount-percent {
+              background: #ff4d4f;
+              color: white;
+              padding: 1mm 2mm;
+              border-radius: 2mm;
+              font-size: 12px;
+              font-weight: bold;
+            }
+            
+            /* Final price - the main attraction */
+            .final-price-row {
+              display: flex;
+              align-items: baseline;
+              gap: 1mm;
+              margin-top: 2mm;
+            }
+            
+            .currency {
+              font-size: 18px;
+              font-weight: bold;
+              color: #ff4d4f;
+            }
+            
+            .final-price {
+              font-size: 36px;
+              font-weight: bold;
+              color: #ff4d4f;
+              line-height: 1;
+            }
+            
+            @media print {
+              body { 
+                margin: 0; 
+                padding: 0;
+              }
+              .label {
+                background: #FFF4E6;
+                border: 1px solid #ff4d4f;
+                page-break-inside: avoid;
+              }
+              .page {
+                page-break-after: always;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            ${labelsGrid}
+          </div>
+        </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+
+      message.success('Đã mở cửa sổ in nhãn');
+    } catch (error) {
+      message.error(error.message || 'Không thể tạo nhãn in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Set manual discount for item
+  const handleSetManualDiscount = async (batchId, itemId, discountPercentage) => {
+    try {
+      setLoading(true);
+      await productBatchService.setManualDiscount(batchId, itemId, discountPercentage);
+
+      message.success(`Đã đặt giảm giá thủ công: ${discountPercentage}%`);
+
+      // Refresh detail view if open
+      if (viewingBatch && viewingBatch._id === batchId) {
+        const refreshResponse = await productBatchService.getById(batchId);
+        setViewingBatch(refreshResponse.data);
+      }
+
+      // Refresh list
+      fetchBatches(getCurrentFilterParams());
+    } catch (error) {
+      message.error(error.message || 'Không thể đặt giảm giá thủ công');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate days until expiry
+  const calculateDaysUntilExpiry = (expiryDate) => {
+    if (!expiryDate) return null;
+    const now = new Date();
+    const expiry = new Date(expiryDate);
+    const diffTime = expiry - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   // Format status display with item counts
@@ -803,281 +1082,281 @@ const ProductBatches = () => {
       >
         <Form form={form} layout="vertical">
           <Divider>Danh sách sản phẩm</Divider>
-              <Form.List name="items">
-                {(fields, { add, remove }) => (
-                  <>
-                    {fields.map(({ key, name, ...restField }, index) => (
-                      <Card
-                        key={key}
-                        size="small"
-                        style={{ marginBottom: 16 }}
-                        title={
-                          <Space>
-                            <span>Sản phẩm {index + 1}</span>
-                            {collapsedItems[index] && (
-                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                {getItemSummary(index)}
-                              </Typography.Text>
-                            )}
-                          </Space>
-                        }
-                        extra={
-                          <Space>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={collapsedItems[index] ? <DownOutlined /> : <UpOutlined />}
-                              onClick={() => toggleCollapse(index)}
-                            />
-                            {fields.length > 1 && (
-                              <MinusCircleOutlined
-                                onClick={() => {
-                                  remove(name);
-                                  // Clean up state for this item
-                                  setItemProducts((prev) => {
-                                    const newState = { ...prev };
-                                    delete newState[index];
-                                    return newState;
-                                  });
-                                  setItemUnits((prev) => {
-                                    const newState = { ...prev };
-                                    delete newState[index];
-                                    return newState;
-                                  });
-                                  setCollapsedItems((prev) => {
-                                    const newState = { ...prev };
-                                    delete newState[index];
-                                    return newState;
-                                  });
-                                }}
-                                style={{ color: 'red', fontSize: 18 }}
-                              />
-                            )}
-                          </Space>
-                        }
+          <Form.List name="items">
+            {(fields, { add, remove }) => (
+              <>
+                {fields.map(({ key, name, ...restField }, index) => (
+                  <Card
+                    key={key}
+                    size="small"
+                    style={{ marginBottom: 16 }}
+                    title={
+                      <Space>
+                        <span>Sản phẩm {index + 1}</span>
+                        {collapsedItems[index] && (
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {getItemSummary(index)}
+                          </Typography.Text>
+                        )}
+                      </Space>
+                    }
+                    extra={
+                      <Space>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={collapsedItems[index] ? <DownOutlined /> : <UpOutlined />}
+                          onClick={() => toggleCollapse(index)}
+                        />
+                        {fields.length > 1 && (
+                          <MinusCircleOutlined
+                            onClick={() => {
+                              remove(name);
+                              // Clean up state for this item
+                              setItemProducts((prev) => {
+                                const newState = { ...prev };
+                                delete newState[index];
+                                return newState;
+                              });
+                              setItemUnits((prev) => {
+                                const newState = { ...prev };
+                                delete newState[index];
+                                return newState;
+                              });
+                              setCollapsedItems((prev) => {
+                                const newState = { ...prev };
+                                delete newState[index];
+                                return newState;
+                              });
+                            }}
+                            style={{ color: 'red', fontSize: 18 }}
+                          />
+                        )}
+                      </Space>
+                    }
+                  >
+                    <div style={{ display: collapsedItems[index] ? 'none' : 'block' }}>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'category_id']}
+                        label="Danh mục"
+                        rules={[{ required: true, message: 'Vui lòng chọn danh mục' }]}
                       >
-                        <div style={{ display: collapsedItems[index] ? 'none' : 'block' }}>
+                        <Select
+                          placeholder="Chọn danh mục"
+                          showSearch
+                          optionFilterProp="children"
+                          onChange={(value) => handleCategoryChange(value, index)}
+                        >
+                          {categories.map((cat) => (
+                            <Select.Option key={cat._id} value={cat._id}>
+                              {cat.name}
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'product_id']}
+                        label="Sản phẩm"
+                        rules={[{ required: true, message: 'Vui lòng chọn sản phẩm' }]}
+                      >
+                        <Select
+                          placeholder="Chọn sản phẩm"
+                          showSearch
+                          optionFilterProp="children"
+                          onChange={(value) => handleProductChange(value, index)}
+                          disabled={!itemProducts[index]?.length}
+                        >
+                          {(itemProducts[index] || []).map((product) => (
+                            <Select.Option key={product._id} value={product._id}>
+                              {product.name}
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'unit_id']}
+                        label="Đơn vị"
+                        rules={[{ required: true, message: 'Vui lòng chọn đơn vị' }]}
+                      >
+                        <Select
+                          placeholder="Chọn đơn vị"
+                          disabled={!itemUnits[index]?.length}
+                        >
+                          {(itemUnits[index] || []).map((unit) => (
+                            <Select.Option key={unit._id} value={unit.unit_id._id}>
+                              {unit.unit_id.name} (x{unit.exchange_value})
+                            </Select.Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+
+                      <Row gutter={16}>
+                        <Col span={12}>
                           <Form.Item
                             {...restField}
-                            name={[name, 'category_id']}
-                            label="Danh mục"
-                            rules={[{ required: true, message: 'Vui lòng chọn danh mục' }]}
+                            name={[name, 'initial_quantity']}
+                            label="Số lượng"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập số lượng' },
+                              {
+                                validator: (_, value) => {
+                                  if (!value || value < 1) {
+                                    return Promise.reject('Số lượng phải lớn hơn 0');
+                                  }
+                                  return Promise.resolve();
+                                },
+                              },
+                            ]}
                           >
-                              <Select
-                                placeholder="Chọn danh mục"
-                                showSearch
-                                optionFilterProp="children"
-                                onChange={(value) => handleCategoryChange(value, index)}
-                              >
-                                {categories.map((cat) => (
-                                  <Select.Option key={cat._id} value={cat._id}>
-                                    {cat.name}
-                                  </Select.Option>
-                                ))}
-                              </Select>
-                            </Form.Item>
+                            <InputNumber
+                              placeholder="Số lượng"
+                              min={1}
+                              style={{ width: '100%' }}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'import_price']}
+                            label="Giá nhập"
+                            rules={[
+                              { required: true, message: 'Vui lòng nhập giá' },
+                            ]}
+                          >
+                            <InputNumber
+                              placeholder="Giá nhập"
+                              min={0}
+                              style={{ width: '100%' }}
+                              formatter={(value) =>
+                                `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                              }
+                              parser={(value) => value?.replace(/\$\s?|(,*)/g, '')}
+                              addonAfter="đ"
+                            />
+                          </Form.Item>
+                        </Col>
+                      </Row>
 
-                            <Form.Item
-                              {...restField}
-                              name={[name, 'product_id']}
-                              label="Sản phẩm"
-                              rules={[{ required: true, message: 'Vui lòng chọn sản phẩm' }]}
-                            >
-                              <Select
-                                placeholder="Chọn sản phẩm"
-                                showSearch
-                                optionFilterProp="children"
-                                onChange={(value) => handleProductChange(value, index)}
-                                disabled={!itemProducts[index]?.length}
-                              >
-                                {(itemProducts[index] || []).map((product) => (
-                                  <Select.Option key={product._id} value={product._id}>
-                                    {product.name}
-                                  </Select.Option>
-                                ))}
-                              </Select>
-                            </Form.Item>
+                      <Row gutter={16}>
+                        <Col span={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'manufacture_date']}
+                            label="Ngày sản xuất"
+                            rules={[
+                              {
+                                required: true,
+                                message: 'Vui lòng chọn ngày sản xuất',
+                              },
+                              () => ({
+                                validator(_, value) {
+                                  if (!value) {
+                                    return Promise.resolve();
+                                  }
+                                  const today = dayjs().startOf('day');
+                                  if (value.isAfter(today, 'day')) {
+                                    return Promise.reject(
+                                      new Error('NSX không được ở tương lai')
+                                    );
+                                  }
+                                  return Promise.resolve();
+                                },
+                              }),
+                            ]}
+                          >
+                            <DatePicker
+                              placeholder="Chọn ngày"
+                              format="DD/MM/YYYY"
+                              style={{ width: '100%' }}
+                              disabledDate={(current) => {
+                                return current && current > dayjs().endOf('day');
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'expiry_date']}
+                            label="Hạn sử dụng"
+                            rules={[
+                              {
+                                required: true,
+                                message: 'Vui lòng chọn hạn sử dụng',
+                              },
+                              () => ({
+                                validator(_, value) {
+                                  if (!value) {
+                                    return Promise.resolve();
+                                  }
+                                  const today = dayjs().startOf('day');
+                                  if (value.isBefore(today, 'day')) {
+                                    return Promise.reject(
+                                      new Error('Hạn SD không được ở quá khứ')
+                                    );
+                                  }
+                                  return Promise.resolve();
+                                },
+                              }),
+                              ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                  const items = getFieldValue('items');
+                                  const manufactureDate = items?.[index]?.manufacture_date;
+                                  if (!value || !manufactureDate) {
+                                    return Promise.resolve();
+                                  }
+                                  const diffInDays = value.diff(manufactureDate, 'days');
+                                  if (diffInDays < 1) {
+                                    return Promise.reject(
+                                      new Error('Hạn SD phải sau NSX ít nhất 1 ngày')
+                                    );
+                                  }
+                                  return Promise.resolve();
+                                },
+                              }),
+                            ]}
+                          >
+                            <DatePicker
+                              placeholder="Chọn ngày"
+                              format="DD/MM/YYYY"
+                              style={{ width: '100%' }}
+                              disabledDate={(current) => {
+                                return current && current < dayjs().startOf('day');
+                              }}
+                            />
+                          </Form.Item>
+                        </Col>
+                      </Row>
 
-                            <Form.Item
-                              {...restField}
-                              name={[name, 'unit_id']}
-                              label="Đơn vị"
-                              rules={[{ required: true, message: 'Vui lòng chọn đơn vị' }]}
-                            >
-                              <Select
-                                placeholder="Chọn đơn vị"
-                                disabled={!itemUnits[index]?.length}
-                              >
-                                {(itemUnits[index] || []).map((unit) => (
-                                  <Select.Option key={unit._id} value={unit.unit_id._id}>
-                                    {unit.unit_id.name} (x{unit.exchange_value})
-                                  </Select.Option>
-                                ))}
-                              </Select>
-                            </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'supplier_name']}
+                        label="Nhà cung cấp"
+                      >
+                        <Input placeholder="Nhập tên nhà cung cấp" />
+                      </Form.Item>
+                    </div>
+                  </Card>
+                ))}
 
-                            <Row gutter={16}>
-                              <Col span={12}>
-                                <Form.Item
-                                  {...restField}
-                                  name={[name, 'initial_quantity']}
-                                  label="Số lượng"
-                                  rules={[
-                                    { required: true, message: 'Vui lòng nhập số lượng' },
-                                    {
-                                      validator: (_, value) => {
-                                        if (!value || value < 1) {
-                                          return Promise.reject('Số lượng phải lớn hơn 0');
-                                        }
-                                        return Promise.resolve();
-                                      },
-                                    },
-                                  ]}
-                                >
-                                  <InputNumber
-                                    placeholder="Số lượng"
-                                    min={1}
-                                    style={{ width: '100%' }}
-                                  />
-                                </Form.Item>
-                              </Col>
-                              <Col span={12}>
-                                <Form.Item
-                                  {...restField}
-                                  name={[name, 'import_price']}
-                                  label="Giá nhập"
-                                  rules={[
-                                    { required: true, message: 'Vui lòng nhập giá' },
-                                  ]}
-                                >
-                                  <InputNumber
-                                    placeholder="Giá nhập"
-                                    min={0}
-                                    style={{ width: '100%' }}
-                                    formatter={(value) =>
-                                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                                    }
-                                    parser={(value) => value?.replace(/\$\s?|(,*)/g, '')}
-                                    addonAfter="đ"
-                                  />
-                                </Form.Item>
-                              </Col>
-                            </Row>
-
-                            <Row gutter={16}>
-                              <Col span={12}>
-                                <Form.Item
-                                  {...restField}
-                                  name={[name, 'manufacture_date']}
-                                  label="Ngày sản xuất"
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: 'Vui lòng chọn ngày sản xuất',
-                                    },
-                                    () => ({
-                                      validator(_, value) {
-                                        if (!value) {
-                                          return Promise.resolve();
-                                        }
-                                        const today = dayjs().startOf('day');
-                                        if (value.isAfter(today, 'day')) {
-                                          return Promise.reject(
-                                            new Error('NSX không được ở tương lai')
-                                          );
-                                        }
-                                        return Promise.resolve();
-                                      },
-                                    }),
-                                  ]}
-                                >
-                                  <DatePicker
-                                    placeholder="Chọn ngày"
-                                    format="DD/MM/YYYY"
-                                    style={{ width: '100%' }}
-                                    disabledDate={(current) => {
-                                      return current && current > dayjs().endOf('day');
-                                    }}
-                                  />
-                                </Form.Item>
-                              </Col>
-                              <Col span={12}>
-                                <Form.Item
-                                  {...restField}
-                                  name={[name, 'expiry_date']}
-                                  label="Hạn sử dụng"
-                                  rules={[
-                                    {
-                                      required: true,
-                                      message: 'Vui lòng chọn hạn sử dụng',
-                                    },
-                                    () => ({
-                                      validator(_, value) {
-                                        if (!value) {
-                                          return Promise.resolve();
-                                        }
-                                        const today = dayjs().startOf('day');
-                                        if (value.isBefore(today, 'day')) {
-                                          return Promise.reject(
-                                            new Error('Hạn SD không được ở quá khứ')
-                                          );
-                                        }
-                                        return Promise.resolve();
-                                      },
-                                    }),
-                                    ({ getFieldValue }) => ({
-                                      validator(_, value) {
-                                        const items = getFieldValue('items');
-                                        const manufactureDate = items?.[index]?.manufacture_date;
-                                        if (!value || !manufactureDate) {
-                                          return Promise.resolve();
-                                        }
-                                        const diffInDays = value.diff(manufactureDate, 'days');
-                                        if (diffInDays < 1) {
-                                          return Promise.reject(
-                                            new Error('Hạn SD phải sau NSX ít nhất 1 ngày')
-                                          );
-                                        }
-                                        return Promise.resolve();
-                                      },
-                                    }),
-                                  ]}
-                                >
-                                  <DatePicker
-                                    placeholder="Chọn ngày"
-                                    format="DD/MM/YYYY"
-                                    style={{ width: '100%' }}
-                                    disabledDate={(current) => {
-                                      return current && current < dayjs().startOf('day');
-                                    }}
-                                  />
-                                </Form.Item>
-                              </Col>
-                            </Row>
-
-                            <Form.Item
-                              {...restField}
-                              name={[name, 'supplier_name']}
-                              label="Nhà cung cấp"
-                            >
-                              <Input placeholder="Nhập tên nhà cung cấp" />
-                            </Form.Item>
-                        </div>
-                      </Card>
-                    ))}
-
-                    <Button
-                      type="dashed"
-                      onClick={() => add()}
-                      block
-                      icon={<PlusCircleOutlined />}
-                      style={{ marginBottom: 16 }}
-                    >
-                      Thêm sản phẩm
-                    </Button>
-                  </>
-                )}
-              </Form.List>
+                <Button
+                  type="dashed"
+                  onClick={() => add()}
+                  block
+                  icon={<PlusCircleOutlined />}
+                  style={{ marginBottom: 16 }}
+                >
+                  Thêm sản phẩm
+                </Button>
+              </>
+            )}
+          </Form.List>
         </Form>
       </Drawer>
 
@@ -1126,7 +1405,7 @@ const ProductBatches = () => {
 
             {/* Rejection Info - Only show if batch is rejected */}
             {viewingBatch.is_deleted && viewingBatch.rejection_note && (
-              <Card 
+              <Card
                 title={
                   <Space>
                     <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
@@ -1134,7 +1413,7 @@ const ProductBatches = () => {
                   </Space>
                 }
                 size="small"
-                style={{ 
+                style={{
                   borderColor: '#ff4d4f',
                   backgroundColor: '#fff2f0'
                 }}
@@ -1437,6 +1716,114 @@ const ProductBatches = () => {
                                   </Typography.Text>
                                 )}
                               </Col>
+
+                              {/* Rescue Pricing Section */}
+                              <Col span={24}>
+                                <Divider style={{ margin: '12px 0' }}>
+                                  <ThunderboltOutlined /> giảm giá tự động
+                                </Divider>
+                              </Col>
+
+                              <Col span={12}>
+                                <Typography.Text strong>Trạng thái giảm giá:</Typography.Text>
+                                <br />
+                                <Space>
+                                  <Switch
+                                    checked={item.rescue_pricing_enabled !== false}
+                                    onChange={(checked) =>
+                                      handleToggleRescuePricing(viewingBatch._id, item._id, checked)
+                                    }
+                                    checkedChildren="BẬT"
+                                    unCheckedChildren="TẮT"
+                                    disabled={item.status === 'sold' || item.status === 'rejected'}
+                                  />
+                                  <Typography.Text type="secondary">
+                                    {item.rescue_pricing_enabled === false ?
+                                      'Đã tắt (tránh xung đột)' :
+                                      'Đang bật'
+                                    }
+                                  </Typography.Text>
+                                </Space>
+                              </Col>
+
+                              <Col span={12}>
+                                <Typography.Text strong>Giảm giá hiện tại:</Typography.Text>
+                                <br />
+                                {item.rescue_pricing_active && item.rescue_discount_percentage > 0 ? (
+                                  <Tag color="red" style={{ fontSize: 16 }}>
+                                    -{item.rescue_discount_percentage}% (Tự động)
+                                  </Tag>
+                                ) : item.manual_discount_percentage > 0 ? (
+                                  <Tag color="orange" style={{ fontSize: 16 }}>
+                                    -{item.manual_discount_percentage}% (Thủ công)
+                                  </Tag>
+                                ) : (
+                                  <Typography.Text type="secondary">Chưa áp dụng</Typography.Text>
+                                )}
+                              </Col>
+
+                              {/* Manual Discount Input - Only shown when auto-pricing is disabled */}
+                              {item.rescue_pricing_enabled === false && (
+                                <Col span={12}>
+                                  <Typography.Text strong>Giảm giá thủ công:</Typography.Text>
+                                  <br />
+                                  <Space>
+                                    <InputNumber
+                                      min={0}
+                                      max={100}
+                                      step={5}
+                                      value={item.manual_discount_percentage || 0}
+                                      onChange={(value) =>
+                                        handleSetManualDiscount(viewingBatch._id, item._id, value || 0)
+                                      }
+                                      disabled={item.status === 'sold' || item.status === 'rejected'}
+                                      addonAfter="%"
+                                      style={{ width: 120 }}
+                                    />
+                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                      (0-100%)
+                                    </Typography.Text>
+                                  </Space>
+                                </Col>
+                              )}
+
+                              <Col span={12}>
+                                <Typography.Text strong>Thời gian còn lại:</Typography.Text>
+                                <br />
+                                {(() => {
+                                  const days = calculateDaysUntilExpiry(item.expiry_date);
+                                  if (days === null) return <Typography.Text>-</Typography.Text>;
+                                  if (days < 0) return <Tag color="red">Đã hết hạn</Tag>;
+                                  if (days <= 3) return <Tag color="red">{days} ngày</Tag>;
+                                  if (days <= 7) return <Tag color="orange">{days} ngày</Tag>;
+                                  if (days <= 30) return <Tag color="gold">{days} ngày</Tag>;
+                                  return <Tag color="green">{days} ngày</Tag>;
+                                })()}
+                              </Col>
+
+                              <Col span={12}>
+                                <Typography.Text strong>Thao tác:</Typography.Text>
+                                <br />
+                                <Button
+                                  type="primary"
+                                  icon={<PrinterOutlined />}
+                                  size="small"
+                                  onClick={() =>
+                                    handlePrintLabel(viewingBatch._id, item._id, item.product_id?.name)
+                                  }
+                                  disabled={item.status === 'sold' || item.status === 'rejected'}
+                                >
+                                  In nhãn giá
+                                </Button>
+                              </Col>
+
+                              {item.rescue_pricing_active && item.rescue_notification_date && (
+                                <Col span={24}>
+                                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                    <ThunderboltOutlined /> Thông báo đã gửi: {dayjs(item.rescue_notification_date).format('DD/MM/YYYY HH:mm')}
+                                  </Typography.Text>
+                                </Col>
+                              )}
                             </Row>
                           </div>
                         </Card>

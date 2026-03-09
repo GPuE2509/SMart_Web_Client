@@ -76,6 +76,56 @@ const productBatchService = {
       throw error.response?.data || error;
     }
   },
+
+  // Toggle rescue pricing for a batch item
+  toggleRescuePricing: async (batchId, itemId, enabled) => {
+    try {
+      const response = await axiosInstance.patch(
+        `/batches/${batchId}/items/${itemId}/rescue-pricing`,
+        { enabled }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get rescue pricing info for a batch item
+  getRescuePricingInfo: async (batchId, itemId) => {
+    try {
+      const response = await axiosInstance.get(
+        `/batches/${batchId}/items/${itemId}/rescue-pricing`
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  // Get print label for batch item
+  getPrintLabel: async (batchId, itemId) => {
+    try {
+      const response = await axiosInstance.get(
+        `/batches/${batchId}/items/${itemId}/label`
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  // Set manual discount percentage for a batch item
+  setManualDiscount: async (batchId, itemId, discountPercentage) => {
+    try {
+      const response = await axiosInstance.patch(
+        `/batches/${batchId}/items/${itemId}/manual-discount`,
+        { discountPercentage }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
 };
 
 export default productBatchService;
