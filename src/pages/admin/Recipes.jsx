@@ -447,7 +447,7 @@ const Recipes = () => {
   return (
     <div>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Title level={3} style={{ margin: 0 }}>
               Quản lý công thức
@@ -766,7 +766,7 @@ const Recipes = () => {
             </Row>
           )}
 
-          <Space direction="vertical" style={{ width: '100%' }} size={6}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={6}>
             {ingredients.map((ing, idx) => (
               <Row
                 key={idx}

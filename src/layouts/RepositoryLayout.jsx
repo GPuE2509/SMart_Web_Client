@@ -173,7 +173,7 @@ const RepositoryLayout = () => {
                   icon={<UserOutlined />}
                   size="default"
                 />
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>{userInfo?.fullName}</Text>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
                     {userInfo?.role}

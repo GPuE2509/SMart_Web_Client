@@ -332,7 +332,7 @@ const Coupons = () => {
       render: (_, record) => {
         const expired = isExpired(record.end_date);
         return (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Text style={{ fontSize: 12 }}>
               Từ: {record.start_date ? dayjs(record.start_date).format('DD/MM/YYYY') : 'N/A'}
             </Text>
@@ -409,7 +409,7 @@ const Coupons = () => {
   return (
     <div>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Title level={3} style={{ margin: 0 }}>
               Quản lý Coupon

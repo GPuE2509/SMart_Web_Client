@@ -157,7 +157,7 @@ const SignIn = () => {
           {waitingForEmail && (
             <Alert
               message={
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                <Space orientation="vertical" size="small" style={{ width: '100%' }}>
                   <Space>
                     <MailOutlined style={{ fontSize: '20px', color: '#1890ff' }} />
                     <Text strong style={{ fontSize: '16px' }}>Đang chờ xác thực email</Text>

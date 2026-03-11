@@ -463,7 +463,7 @@ const ProductUnits = () => {
   return (
     <div>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           {/* Header */}
           <Row justify="space-between" align="middle">
             <Col>
@@ -672,7 +672,7 @@ const ProductUnits = () => {
             onChange={(e) => setBarcodeMethod(e.target.value)}
             style={{ marginBottom: 16, width: '100%' }}
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Radio value="manual">
                 <Space>
                   <BarcodeOutlined />

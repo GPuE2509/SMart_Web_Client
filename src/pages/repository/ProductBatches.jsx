@@ -969,7 +969,7 @@ const ProductBatches = () => {
   return (
     <div>
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <div
             style={{
               display: 'flex',
@@ -1386,7 +1386,7 @@ const ProductBatches = () => {
         }
       >
         {viewingBatch && (
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="large" style={{ width: '100%' }}>
             {/* Batch Info */}
             <Card title="Thông tin lô hàng" size="small">
               <Row gutter={[16, 16]}>
@@ -1451,7 +1451,7 @@ const ProductBatches = () => {
               <Form form={detailForm} layout="vertical">
                 <Form.List name="items">
                   {() => (
-                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                       {viewingBatch.items?.map((item, index) => (
                         <Card
                           key={index}

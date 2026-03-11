@@ -318,7 +318,7 @@ const SmartSuggestions = ({ visible, onClose }) => {
                       }}
                       bodyStyle={{ padding: 16 }}
                     >
-                      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
                         {/* Product Name & Priority */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <Title level={5} style={{ margin: 0, flex: 1 }}>
