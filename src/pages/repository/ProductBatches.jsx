@@ -574,204 +574,24 @@ const ProductBatches = () => {
   };
 
   // Print label for item
-  const handlePrintLabel = async (batchId, itemId, itemName) => {
+  const handlePrintLabel = async (batchId, itemId) => {
     try {
-      setLoading(true);
-      const response = await productBatchService.getPrintLabel(batchId, itemId);
-      const labelData = response.data;
-
-      // Create label content
-      const labelContent = `
-        <div class="label">
-          ${labelData.rescuePricing ? `
-            <div class="discount-badge">💰 KHUYẾN MÃI</div>
-          ` : ''}
-          
-          <div class="product-info">
-            <div class="product-name">${labelData.productName}</div>
-            <div class="product-unit">${labelData.unitName}</div>
-          </div>
-          
-          <div class="price-container">
-            ${labelData.rescuePricing ? `
-              <div class="price-row">
-                <span class="original-price">${Math.round(labelData.originalPrice || 0).toLocaleString()}</span>
-                <span class="original-price">đ</span>
-                <span class="discount-percent">-${labelData.discountPercentage}%</span>
-              </div>
-            ` : ''}
-            <div class="final-price-row">
-              <span class="final-price">${Math.round(labelData.finalPrice || 0).toLocaleString()}</span>
-              <span class="currency">đ</span>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Duplicate label 8 times (2x4 grid on A4 - landscape labels)
-      const labelsGrid = Array(8).fill(labelContent).join('');
-
-      // Create a simple print window
       const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        message.error('Trình duyệt đang chặn cửa sổ in. Vui lòng cho phép popup.');
+        return;
+      }
 
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Nhãn Giá - ${itemName}</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 5mm;
-            }
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: Arial, sans-serif;
-              width: 210mm;
-              background: white;
-              margin: 0 auto;
-            }
-            .page {
-              width: 210mm;
-              min-height: 297mm;
-              display: grid;
-              grid-template-columns: repeat(2, 90mm);
-              grid-template-rows: repeat(4, 60mm);
-              gap: 5mm;
-              padding: 10mm;
-              page-break-after: always;
-            }
-            .label {
-              position: relative;
-              width: 90mm;
-              height: 60mm;
-              display: flex;
-              flex-direction: row;
-              padding: 4mm;
-              background: #FFF4E6;
-              border: 1px solid #ff4d4f;
-            }
-            
-            /* Discount badge - top right corner */
-            .discount-badge {
-              position: absolute;
-              top: 0;
-              right: 0;
-              background: #ff4d4f;
-              color: white;
-              padding: 2mm 4mm;
-              font-weight: bold;
-              font-size: 12px;
-              border-bottom-left-radius: 3mm;
-            }
-            
-            /* Product info section - left side */
-            .product-info {
-              flex: 1;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              padding-right: 4mm;
-              margin-top: 8mm;
-            }
-            
-            .product-name {
-              font-size: 25px;
-              font-weight: bold;
-              line-height: 1.3;
-              margin-bottom: 2mm;
-              color: #000;
-              text-transform: uppercase;
-            }
-            
-            .product-unit {
-              font-size: 20px;
-              color: #666;
-            }
-            
-            /* Price container - right side */
-            .price-container {
-              flex: 1;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              border-left: 2px solid #ff4d4f;
-              padding-left: 4mm;
-            }
-            
-            .price-row {
-              display: flex;
-              align-items: center;
-              gap: 2mm;
-              margin-bottom: 2mm;
-            }
-            
-            .original-price {
-              text-decoration: line-through;
-              color: #999;
-              font-size: 13px;
-            }
-            
-            .discount-percent {
-              background: #ff4d4f;
-              color: white;
-              padding: 1mm 2mm;
-              border-radius: 2mm;
-              font-size: 12px;
-              font-weight: bold;
-            }
-            
-            /* Final price - the main attraction */
-            .final-price-row {
-              display: flex;
-              align-items: baseline;
-              gap: 1mm;
-              margin-top: 2mm;
-            }
-            
-            .currency {
-              font-size: 18px;
-              font-weight: bold;
-              color: #ff4d4f;
-            }
-            
-            .final-price {
-              font-size: 36px;
-              font-weight: bold;
-              color: #ff4d4f;
-              line-height: 1;
-            }
-            
-            @media print {
-              body { 
-                margin: 0; 
-                padding: 0;
-              }
-              .label {
-                background: #FFF4E6;
-                border: 1px solid #ff4d4f;
-                page-break-inside: avoid;
-              }
-              .page {
-                page-break-after: always;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            ${labelsGrid}
-          </div>
-        </body>
-        </html>
-      `);
+      printWindow.document.write('<p style="font-family: Arial, sans-serif; padding: 16px;">Đang tạo nhãn in...</p>');
 
+      setLoading(true);
+      const html = await productBatchService.getPrintLabelHtml(batchId, itemId, 8);
+
+      printWindow.document.open();
+      printWindow.document.write(html);
       printWindow.document.close();
       printWindow.onload = () => {
+        printWindow.focus();
         printWindow.print();
       };
 
@@ -1809,7 +1629,7 @@ const ProductBatches = () => {
                                   icon={<PrinterOutlined />}
                                   size="small"
                                   onClick={() =>
-                                    handlePrintLabel(viewingBatch._id, item._id, item.product_id?.name)
+                                    handlePrintLabel(viewingBatch._id, item._id)
                                   }
                                   disabled={item.status === 'sold' || item.status === 'rejected'}
                                 >
