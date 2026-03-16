@@ -114,6 +114,25 @@ const productBatchService = {
     }
   },
 
+  // Get printable HTML from backend for batch item label
+  getPrintLabelHtml: async (batchId, itemId, copies = 8) => {
+    try {
+      const response = await axiosInstance.get(
+        `/batches/${batchId}/items/${itemId}/label`,
+        {
+          params: {
+            format: "html",
+            copies,
+          },
+          responseType: "text",
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   // Set manual discount percentage for a batch item
   setManualDiscount: async (batchId, itemId, discountPercentage) => {
     try {
