@@ -17,6 +17,7 @@ import {
   Tooltip,
   DatePicker,
   Select,
+  Radio,
 } from 'antd';
 import {
   InfoCircleOutlined,
@@ -38,19 +39,43 @@ const SmartSuggestions = ({ visible, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [dateRange, setDateRange] = useState(null);
-  const [daysBack, setDaysBack] = useState(90);
-  const [useCustomRange, setUseCustomRange] = useState(false);
+  const [daysBack, setDaysBack] = useState(null);
+  const [analysisMode, setAnalysisMode] = useState(null);
 
   // Fetch suggestions khi modal mở
   const fetchSuggestions = async () => {
+    if (!analysisMode) {
+      Modal.warning({
+        title: 'Chưa chọn kiểu phân tích',
+        content: 'Vui lòng chọn một trong hai lựa chọn trước khi phân tích.',
+      });
+      return;
+    }
+
+    if (analysisMode === 'period' && !daysBack) {
+      Modal.warning({
+        title: 'Thiếu khoảng thời gian',
+        content: 'Vui lòng chọn số ngày phân tích trước khi tiếp tục.',
+      });
+      return;
+    }
+
+    if (analysisMode === 'custom' && (!dateRange || !dateRange[0] || !dateRange[1])) {
+      Modal.warning({
+        title: 'Thiếu khoảng ngày',
+        content: 'Vui lòng chọn đầy đủ Từ ngày và Đến ngày trước khi phân tích.',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const params = {};
       
-      if (useCustomRange && dateRange && dateRange[0] && dateRange[1]) {
+      if (analysisMode === 'custom' && dateRange && dateRange[0] && dateRange[1]) {
         params.date_from = dateRange[0].format('YYYY-MM-DD');
         params.date_to = dateRange[1].format('YYYY-MM-DD');
-      } else if (!useCustomRange && daysBack) {
+      } else if (analysisMode === 'period' && daysBack) {
         params.days_back = daysBack;
       }
 
@@ -68,23 +93,26 @@ const SmartSuggestions = ({ visible, onClose }) => {
 
   // Fetch khi modal mở lần đầu
   useEffect(() => {
-    if (visible && !data) {
-      fetchSuggestions();
+    if (!visible) {
+      return;
     }
   }, [visible]);
 
   // Handle date range preset change
   const handlePresetChange = (value) => {
     setDaysBack(value);
-    setUseCustomRange(false);
+  };
+
+  const handleModeChange = (value) => {
+    setAnalysisMode(value);
+    if (value === 'period' && !daysBack) {
+      setDaysBack(90);
+    }
   };
 
   // Handle custom date range change
   const handleDateRangeChange = (dates) => {
     setDateRange(dates);
-    if (dates) {
-      setUseCustomRange(true);
-    }
   };
 
   // Map priority to color and icon
@@ -128,6 +156,74 @@ const SmartSuggestions = ({ visible, onClose }) => {
       ]}
       style={{ top: 20 }}
     >
+      {/* Date Range Filter */}
+      <Card size="small" style={{ marginBottom: 16, background: '#f0f2f5' }}>
+        <Row gutter={16} align="middle">
+          <Col>
+            <Space>
+              <CalendarOutlined style={{ fontSize: 16, color: '#1890ff' }} />
+              <Text strong>Khoảng thời gian phân tích:</Text>
+            </Space>
+          </Col>
+          <Col span={24}>
+            <Radio.Group
+              value={analysisMode}
+              onChange={(e) => handleModeChange(e.target.value)}
+              optionType="button"
+              buttonStyle="solid"
+            >
+              <Radio.Button value="period">Chọn khoảng thời gian</Radio.Button>
+              <Radio.Button value="custom">Chọn từ ngày đến ngày</Radio.Button>
+            </Radio.Group>
+          </Col>
+          {analysisMode === 'period' ? (
+            <Col>
+              <Select
+                value={daysBack}
+                onChange={handlePresetChange}
+                style={{ width: 150 }}
+                options={[
+                  { label: '7 ngày', value: 7 },
+                  { label: '30 ngày', value: 30 },
+                  { label: '90 ngày', value: 90 },
+                  { label: '180 ngày', value: 180 },
+                  { label: '1 năm', value: 365 },
+                ]}
+              />
+            </Col>
+          ) : (
+            <Col flex="auto">
+              <RangePicker
+                value={dateRange}
+                onChange={handleDateRangeChange}
+                format="DD/MM/YYYY"
+                placeholder={['Từ ngày', 'Đến ngày']}
+                style={{ width: '100%' }}
+                disabledDate={(current) => current && current > dayjs().endOf('day')}
+              />
+            </Col>
+          )}
+          <Col>
+            <Button type="primary" icon={<ReloadOutlined />} onClick={fetchSuggestions}>
+              Phân tích
+            </Button>
+          </Col>
+        </Row>
+        {data?.date_range && (
+          <div style={{ marginTop: 12, fontSize: 12, color: '#666' }}>
+            <Text type="secondary">
+              📊 Đã phân tích: {data.stats?.total_batches || 0} lô hàng, {data.stats?.total_logs || 0} nhật ký kho
+              {data.date_range.from && (
+                <> • Từ {new Date(data.date_range.from).toLocaleDateString('vi-VN')}</>
+              )}
+              {data.date_range.to && (
+                <> đến {new Date(data.date_range.to).toLocaleDateString('vi-VN')}</>
+              )}
+            </Text>
+          </div>
+        )}
+      </Card>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '60px 0' }}>
           <Spin size="large" />
@@ -136,66 +232,9 @@ const SmartSuggestions = ({ visible, onClose }) => {
           </Paragraph>
         </div>
       ) : !data ? (
-        <Empty description="Chưa có dữ liệu" />
+        <Empty description="Vui lòng chọn loại phân tích và bấm Phân tích" />
       ) : (
         <>
-          {/* Date Range Filter */}
-          <Card size="small" style={{ marginBottom: 16, background: '#f0f2f5' }}>
-            <Row gutter={16} align="middle">
-              <Col>
-                <Space>
-                  <CalendarOutlined style={{ fontSize: 16, color: '#1890ff' }} />
-                  <Text strong>Khoảng thời gian phân tích:</Text>
-                </Space>
-              </Col>
-              <Col>
-                <Select
-                  value={useCustomRange ? 'custom' : daysBack}
-                  onChange={handlePresetChange}
-                  style={{ width: 150 }}
-                  disabled={useCustomRange}
-                  options={[
-                    { label: '7 ngày', value: 7 },
-                    { label: '30 ngày', value: 30 },
-                    { label: '90 ngày', value: 90 },
-                    { label: '180 ngày', value: 180 },
-                    { label: '1 năm', value: 365 },
-                  ]}
-                />
-              </Col>
-              <Col>
-                <Text>hoặc</Text>
-              </Col>
-              <Col flex="auto">
-                <RangePicker
-                  value={dateRange}
-                  onChange={handleDateRangeChange}
-                  format="DD/MM/YYYY"
-                  placeholder={['Từ ngày', 'Đến ngày']}
-                  style={{ width: '100%' }}
-                  disabledDate={(current) => current && current > dayjs().endOf('day')}
-                />
-              </Col>
-              <Col>
-                <Button type="primary" icon={<ReloadOutlined />} onClick={fetchSuggestions}>
-                  Phân tích
-                </Button>
-              </Col>
-            </Row>
-            {data.date_range && (
-              <div style={{ marginTop: 12, fontSize: 12, color: '#666' }}>
-                <Text type="secondary">
-                  📊 Đã phân tích: {data.stats?.total_batches || 0} lô hàng, {data.stats?.total_logs || 0} nhật ký kho
-                  {data.date_range.from && (
-                    <> • Từ {new Date(data.date_range.from).toLocaleDateString('vi-VN')}</>
-                  )}
-                  {data.date_range.to && (
-                    <> đến {new Date(data.date_range.to).toLocaleDateString('vi-VN')}</>
-                  )}
-                </Text>
-              </div>
-            )}
-          </Card>
 
           {/* Overall Analysis */}
           {data.analysis && (
