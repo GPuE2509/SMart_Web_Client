@@ -19,6 +19,7 @@ import Recipes from '../pages/admin/Recipes';
 import Orders from '../pages/admin/Orders';
 import Payslips from '../pages/admin/Payslips';
 import SellerDashboard from '../pages/seller/SellerDashboard';
+import SellerPOS from '../pages/seller/SellerPOS';
 import RepositoryDashboard from '../pages/repository/RepositoryDashboard';
 import RepositoryProductBatches from '../pages/repository/ProductBatches';
 import ProtectedRoute from './ProtectedRoute';
@@ -138,6 +139,14 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <Navigate to="/seller/pos" replace />,
+      },
+      {
+        path: 'pos',
+        element: <SellerPOS />,
+      },
+      {
+        path: 'dashboard',
         element: <SellerDashboard />,
       },
       {
