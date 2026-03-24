@@ -95,10 +95,11 @@ const payrollService = {
   },
 
   // Export to Excel - returns blob
-  exportToExcel: async (month, year, role) => {
+  exportToExcel: async (month, year, options = {}) => {
     try {
       const params = { month, year };
-      if (role) params.role = role;
+      if (options.role) params.role = options.role;
+      if (options.search) params.search = options.search;
 
       const response = await axiosInstance.get("/admin/payroll/export/excel", {
         params,
@@ -111,10 +112,11 @@ const payrollService = {
   },
 
   // Export to PDF - returns blob
-  exportToPDF: async (month, year, role) => {
+  exportToPDF: async (month, year, options = {}) => {
     try {
       const params = { month, year };
-      if (role) params.role = role;
+      if (options.role) params.role = options.role;
+      if (options.search) params.search = options.search;
 
       const response = await axiosInstance.get("/admin/payroll/export/pdf", {
         params,

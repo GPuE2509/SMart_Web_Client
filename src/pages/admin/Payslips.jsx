@@ -42,6 +42,8 @@ import profileService from '../../services/profileService';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
+const noWrapStyle = { whiteSpace: 'nowrap' };
 
 function Payslips() {
   const [payslips, setPayslips] = useState([]);
@@ -65,6 +67,7 @@ function Payslips() {
   // Forms
   const [adjustmentForm] = Form.useForm();
   const [calculateForm] = Form.useForm();
+  const effectiveSelectedMonth = selectedMonth || dayjs();
 
   useEffect(() => {
     fetchPayrollReport();
@@ -79,8 +82,8 @@ function Payslips() {
   const fetchPayrollReport = async () => {
     setLoading(true);
     try {
-      const month = selectedMonth.month() + 1;
-      const year = selectedMonth.year();
+      const month = effectiveSelectedMonth.month() + 1;
+      const year = effectiveSelectedMonth.year();
 
       const result = await payrollService.getPayrollReport(month, year, {
         role: roleFilter,
@@ -120,7 +123,7 @@ function Payslips() {
 
   // Handle month change
   const handleMonthChange = (date) => {
-    setSelectedMonth(date);
+    setSelectedMonth(date || dayjs());
   };
 
   // Handle pagination change
@@ -133,26 +136,30 @@ function Payslips() {
   const handleCalculatePayroll = async (values) => {
     setCalculating(true);
     try {
-      const month = selectedMonth.month() + 1;
-      const year = selectedMonth.year();
+      const month = effectiveSelectedMonth.month() + 1;
+      const year = effectiveSelectedMonth.year();
+      const dateRange = values.date_range;
+
+      const calculationConfig = {
+        hourly_rate: values.hourly_rate,
+        base_salary: values.base_salary,
+        sales_commission_rate: values.sales_commission_rate,
+      };
+
+      if (dateRange?.length === 2) {
+        calculationConfig.start_date = dateRange[0].startOf('day').toISOString();
+        calculationConfig.end_date = dateRange[1].endOf('day').toISOString();
+      }
 
       if (values.calculate_all) {
-        await payrollService.bulkCalculatePayroll(month, year, {
-          hourly_rate: values.hourly_rate,
-          base_salary: values.base_salary,
-          sales_commission_rate: values.sales_commission_rate,
-        });
+        await payrollService.bulkCalculatePayroll(month, year, calculationConfig);
         message.success('Đã tính lương cho tất cả nhân viên!');
       } else {
         await payrollService.calculatePayroll(
           values.user_id,
           month,
           year,
-          {
-            hourly_rate: values.hourly_rate,
-            base_salary: values.base_salary,
-            sales_commission_rate: values.sales_commission_rate,
-          }
+          calculationConfig,
         );
         message.success('Đã tính lương cho nhân viên!');
       }
@@ -239,9 +246,12 @@ function Payslips() {
   // Export to Excel
   const handleExportExcel = async () => {
     try {
-      const month = selectedMonth.month() + 1;
-      const year = selectedMonth.year();
-      const blob = await payrollService.exportToExcel(month, year, roleFilter);
+      const month = effectiveSelectedMonth.month() + 1;
+      const year = effectiveSelectedMonth.year();
+      const blob = await payrollService.exportToExcel(month, year, {
+        role: roleFilter,
+        search: searchText?.trim() || undefined,
+      });
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -261,9 +271,12 @@ function Payslips() {
   // Export to PDF
   const handleExportPDF = async () => {
     try {
-      const month = selectedMonth.month() + 1;
-      const year = selectedMonth.year();
-      const blob = await payrollService.exportToPDF(month, year, roleFilter);
+      const month = effectiveSelectedMonth.month() + 1;
+      const year = effectiveSelectedMonth.year();
+      const blob = await payrollService.exportToPDF(month, year, {
+        role: roleFilter,
+        search: searchText?.trim() || undefined,
+      });
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -330,7 +343,7 @@ function Payslips() {
       render: (hours) => `${hours?.toFixed(1) || 0}h`,
     },
     {
-      title: 'Tỷ lệ CC',
+      title: 'Tỷ lệ chuyên cần',
       dataIndex: 'attendance_rate',
       key: 'attendance_rate',
       align: 'center',
@@ -351,7 +364,7 @@ function Payslips() {
       render: (amount) => formatCurrency(amount),
     },
     {
-      title: 'Lương NET',
+      title: 'Lương thực nhận',
       dataIndex: 'net',
       key: 'net',
       align: 'right',
@@ -436,7 +449,7 @@ function Payslips() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Tổng lương GROSS"
+              title="Tổng lương trước khấu trừ"
               value={summary.total_gross || 0}
               formatter={(value) => formatCurrency(value)}
             />
@@ -445,7 +458,7 @@ function Payslips() {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Tổng lương NET"
+              title="Tổng lương thực nhận"
               value={summary.total_net || 0}
               formatter={(value) => formatCurrency(value)}
               valueStyle={{ color: '#52c41a' }}
@@ -470,10 +483,11 @@ function Payslips() {
           <Col>
             <DatePicker
               picker="month"
-              value={selectedMonth}
+              value={effectiveSelectedMonth}
               onChange={handleMonthChange}
               format="MM/YYYY"
               placeholder="Chọn tháng"
+              allowClear={false}
             />
           </Col>
           <Col>
@@ -509,7 +523,13 @@ function Payslips() {
               <Button
                 type="primary"
                 icon={<CalculatorOutlined />}
-                onClick={() => setCalculateModalVisible(true)}
+                onClick={() => {
+                  calculateForm.setFieldsValue({
+                    date_range: [effectiveSelectedMonth.startOf('month'), effectiveSelectedMonth.endOf('month')],
+                    calculate_all: true,
+                  });
+                  setCalculateModalVisible(true);
+                }}
               >
                 Tính lương
               </Button>
@@ -566,8 +586,27 @@ function Payslips() {
             base_salary: 4000000,
             sales_commission_rate: 1,
             calculate_all: true,
+            date_range: [effectiveSelectedMonth.startOf('month'), effectiveSelectedMonth.endOf('month')],
           }}
         >
+          <Form.Item
+            name="date_range"
+            label="Khoảng ngày tính lương"
+            extra="Có thể chọn kéo dài qua các tháng trước để gộp lương (ví dụ 01/02 - 31/03)."
+            rules={[{ required: true, message: 'Vui lòng chọn khoảng ngày!' }]}
+          >
+            <RangePicker
+              format="DD/MM/YYYY"
+              style={{ width: '100%' }}
+              allowClear={false}
+              disabledDate={(current) => {
+                if (!current) return false;
+                const monthEnd = effectiveSelectedMonth.endOf('month');
+                return current.isAfter(monthEnd, 'day');
+              }}
+            />
+          </Form.Item>
+
           <Form.Item name="calculate_all" valuePropName="checked" label="Tính cho tất cả nhân viên">
             <Select
               onChange={(value) => {
@@ -632,7 +671,14 @@ function Payslips() {
               <Button type="primary" htmlType="submit" loading={calculating}>
                 Tính lương
               </Button>
-              <Button onClick={() => setCalculateModalVisible(false)}>Hủy</Button>
+              <Button
+                onClick={() => {
+                  setCalculateModalVisible(false);
+                  calculateForm.resetFields();
+                }}
+              >
+                Hủy
+              </Button>
             </Space>
           </Form.Item>
         </Form>
@@ -702,13 +748,20 @@ function Payslips() {
             Đóng
           </Button>,
         ]}
-        width={700}
+        width={820}
       >
         {selectedPayslip && (
           <>
-            <Descriptions bordered column={2} size="small">
+            <Descriptions bordered column={{ xs: 1, sm: 1, md: 2 }} size="small">
               <Descriptions.Item label="Tháng/Năm">
-                {selectedPayslip.month}/{selectedPayslip.year}
+                <span style={noWrapStyle}>{selectedPayslip.month}/{selectedPayslip.year}</span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Khoảng tính lương" span={2}>
+                <span style={noWrapStyle}>
+                  {selectedPayslip.period_start_date && selectedPayslip.period_end_date
+                    ? `${dayjs(selectedPayslip.period_start_date).format('DD/MM/YYYY')} - ${dayjs(selectedPayslip.period_end_date).format('DD/MM/YYYY')}`
+                    : `01/${String(selectedPayslip.month).padStart(2, '0')}/${selectedPayslip.year} - ${dayjs(new Date(selectedPayslip.year, selectedPayslip.month, 0)).format('DD/MM/YYYY')}`}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label="Trạng thái">
                 {selectedPayslip.payment_status === 'paid' ? (
@@ -718,43 +771,43 @@ function Payslips() {
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Ngày công">
-                {selectedPayslip.total_work_days} ngày
+                <span style={noWrapStyle}>{selectedPayslip.total_work_days} ngày</span>
               </Descriptions.Item>
               <Descriptions.Item label="Giờ công">
-                {selectedPayslip.total_work_hours?.toFixed(1)} giờ
+                <span style={noWrapStyle}>{selectedPayslip.total_work_hours?.toFixed(1)} giờ</span>
               </Descriptions.Item>
               <Descriptions.Item label="Tỷ lệ chuyên cần">
-                {selectedPayslip.attendance_rate?.toFixed(0)}%
+                <span style={noWrapStyle}>{selectedPayslip.attendance_rate?.toFixed(0)}%</span>
               </Descriptions.Item>
               <Descriptions.Item label="Lương/giờ">
-                {formatCurrency(selectedPayslip.hourly_rate)}
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.hourly_rate)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Lương cơ bản">
-                {formatCurrency(selectedPayslip.base_salary)}
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.base_salary)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Lương theo giờ">
-                {formatCurrency(selectedPayslip.hours_based_salary)}
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.hours_based_salary)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Doanh số">
-                {formatCurrency(selectedPayslip.total_sales_amount)}
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.total_sales_amount)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Đơn hàng">
-                {selectedPayslip.total_orders_processed} đơn
+                <span style={noWrapStyle}>{selectedPayslip.total_orders_processed} đơn</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Hoa hồng ({selectedPayslip.sales_commission_rate}%)">
-                {formatCurrency(selectedPayslip.sales_commission)}
+              <Descriptions.Item label={`Hoa hồng (${selectedPayslip.sales_commission_rate}%)`}>
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.sales_commission)}</span>
               </Descriptions.Item>
               <Descriptions.Item label="Tổng thưởng">
-                <Text type="success">{formatCurrency(selectedPayslip.total_bonus)}</Text>
+                <Text type="success" style={noWrapStyle}>{formatCurrency(selectedPayslip.total_bonus)}</Text>
               </Descriptions.Item>
               <Descriptions.Item label="Tổng khấu trừ">
-                <Text type="danger">{formatCurrency(selectedPayslip.total_deductions)}</Text>
+                <Text type="danger" style={noWrapStyle}>{formatCurrency(selectedPayslip.total_deductions)}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Lương GROSS">
-                {formatCurrency(selectedPayslip.gross)}
+              <Descriptions.Item label="Lương trước khấu trừ">
+                <span style={noWrapStyle}>{formatCurrency(selectedPayslip.gross)}</span>
               </Descriptions.Item>
-              <Descriptions.Item label="Lương NET" span={2}>
-                <Text strong style={{ fontSize: '18px', color: '#52c41a' }}>
+              <Descriptions.Item label="Lương thực nhận" span={2}>
+                <Text strong style={{ fontSize: '18px', color: '#52c41a', whiteSpace: 'nowrap' }}>
                   {formatCurrency(selectedPayslip.net)}
                 </Text>
               </Descriptions.Item>

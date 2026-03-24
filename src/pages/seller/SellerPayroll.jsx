@@ -216,7 +216,7 @@ function SellerPayroll() {
       ),
     },
     {
-      title: 'Lương NET',
+      title: 'Lương thực nhận',
       dataIndex: 'net',
       key: 'net',
       align: 'right',
@@ -245,10 +245,15 @@ function SellerPayroll() {
       align: 'center',
       render: (_, record) => (
         <Button
-          type="primary"
-          ghost
+          type="default"
           icon={<EyeOutlined />}
           onClick={() => handleViewDetail(record._id)}
+          style={{
+            color: '#f5741f',
+            borderColor: '#f5741f',
+            minWidth: 120,
+            fontWeight: 500,
+          }}
         >
           Chi tiết
         </Button>
@@ -346,7 +351,7 @@ function SellerPayroll() {
         <Row gutter={24}>
           <Col span={6}>
             <Statistic
-              title="Tổng lương NET"
+              title="Tổng lương thực nhận"
               value={summary.total_net || 0}
               formatter={(value) => formatCurrency(value)}
               valueStyle={{ color: '#52c41a' }}
@@ -515,10 +520,10 @@ function SellerPayroll() {
               <Descriptions.Item label="Tổng khấu trừ">
                 <Text type="danger">{formatCurrency(selectedPayslip.total_deductions)}</Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Lương GROSS">
+              <Descriptions.Item label="Lương trước khấu trừ">
                 {formatCurrency(selectedPayslip.gross)}
               </Descriptions.Item>
-              <Descriptions.Item label="Lương NET" span={2}>
+              <Descriptions.Item label="Lương thực nhận" span={2}>
                 <Text strong style={{ fontSize: '20px', color: '#52c41a' }}>
                   {formatCurrency(selectedPayslip.net)}
                 </Text>
