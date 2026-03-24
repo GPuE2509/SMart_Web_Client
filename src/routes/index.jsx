@@ -21,6 +21,7 @@ import Payslips from '../pages/admin/Payslips';
 import SellerDashboard from '../pages/seller/SellerDashboard';
 import SellerOrders from '../pages/seller/SellerOrders';
 import SellerPayroll from '../pages/seller/SellerPayroll';
+import SellerPOS from '../pages/seller/SellerPOS';
 import RepositoryDashboard from '../pages/repository/RepositoryDashboard';
 import RepositoryProductBatches from '../pages/repository/ProductBatches';
 import RepositoryPayroll from '../pages/repository/RepositoryPayroll';
@@ -141,6 +142,14 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <Navigate to="/seller/pos" replace />,
+      },
+      {
+        path: 'pos',
+        element: <SellerPOS />,
+      },
+      {
+        path: 'dashboard',
         element: <SellerDashboard />,
       },
       {

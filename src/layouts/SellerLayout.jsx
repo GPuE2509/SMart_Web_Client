@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { Layout, Menu, Avatar, Dropdown, Typography, Space, Spin } from 'antd';
 import {
   LogoutOutlined,
   UserOutlined,
+  LockOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  LockOutlined,
   ShoppingOutlined,
   ShoppingCartOutlined,
   DollarOutlined,
@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import authService from '../services/authService';
 import { getUserDisplayInfo } from '../utils/roleUtils';
+import '../layouts/AdminLayout.css';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -23,6 +24,7 @@ const SellerLayout = () => {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -48,6 +50,18 @@ const SellerLayout = () => {
     );
   }
 
+  const selectedKey = location.pathname.includes('/attendance') ? 'attendance' : 'pos';
+
+  const handleMenuClick = ({ key }) => {
+    if (key === 'pos') {
+      navigate('/seller/pos');
+      return;
+    }
+    if (key === 'attendance') {
+      navigate('/seller/attendance');
+    }
+  };
+
   const handleLogout = async () => {
     await authService.logout();
     navigate('/SignIn');
@@ -57,8 +71,8 @@ const SellerLayout = () => {
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: 'Thông tin cá nhân',
-      onClick: () => navigate('/profile'),
+      label: 'Profile',
+      onClick: () => navigate('/seller/pos'),
     },
     {
       key: 'change-password',
@@ -72,7 +86,7 @@ const SellerLayout = () => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Đăng xuất',
+      label: 'Logout',
       onClick: handleLogout,
     },
   ];
@@ -97,48 +111,82 @@ const SellerLayout = () => {
       onClick: () => navigate('/seller/payroll'),
     },
     {
+      type: 'group',
+      label: 'Quản lý bán hàng',
+      key: 'sales',
+      children: [
+        {
+          key: 'pos',
+          icon: <ShoppingOutlined />,
+          label: 'POS thanh toán',
+        },
+      ],
+    },
+    {
       key: 'attendance',
       icon: <ClockCircleOutlined />,
       label: 'Chấm công',
-      onClick: () => navigate('/seller/attendance'),
     },
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div style={{ height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <h2 style={{ margin: 0, color: 'white' }}>{collapsed ? 'S' : 'Seller'}</h2>
+    <Layout className="main-layout">
+      <Sider
+        trigger={null}
+        collapsible
+        collapsed={collapsed}
+        className="main-sider"
+        width={250}
+        breakpoint="lg"
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
+        }}
+      >
+        <div className="logo">
+          {!collapsed ? (
+            <img
+              src="/src/assets/logo.png"
+              alt="SMart"
+              className="logo-full"
+            />
+          ) : (
+            <img
+              src="/src/assets/logo.png"
+              alt="SMart"
+              className="logo-collapsed"
+            />
+          )}
         </div>
         <Menu
           theme="dark"
           mode="inline"
-          defaultSelectedKeys={['seller']}
+          selectedKeys={[selectedKey]}
+          onClick={handleMenuClick}
           items={menuItems}
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: 0, background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ paddingLeft: '16px' }}>
+        <Header className="main-header">
+          <div className="header-left">
             {collapsed ? (
               <MenuUnfoldOutlined
-                style={{ fontSize: '18px', cursor: 'pointer' }}
+                className="trigger"
                 onClick={() => setCollapsed(!collapsed)}
               />
             ) : (
               <MenuFoldOutlined
-                style={{ fontSize: '18px', cursor: 'pointer' }}
+                className="trigger"
                 onClick={() => setCollapsed(!collapsed)}
               />
             )}
           </div>
-          <div style={{ paddingRight: '16px' }}>
+          <div className="header-right">
             <Dropdown
               menu={{ items: userMenuItems }}
               placement="bottomRight"
               trigger={['click']}
             >
-              <Space style={{ cursor: 'pointer' }}>
+              <Space className="user-info" style={{ cursor: 'pointer' }}>
                 <Avatar
                   src={userInfo?.avatar}
                   icon={<UserOutlined />}
@@ -154,8 +202,10 @@ const SellerLayout = () => {
             </Dropdown>
           </div>
         </Header>
-        <Content style={{ margin: '24px 16px', padding: 24, background: '#fff' }}>
-          <Outlet />
+        <Content className="main-content">
+          <div className="content-wrapper">
+            <Outlet />
+          </div>
         </Content>
       </Layout>
     </Layout>
