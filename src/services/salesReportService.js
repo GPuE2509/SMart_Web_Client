@@ -90,6 +90,18 @@ export const getCostRetailTrendChart = async (params = {}) => {
   return response.data;
 };
 
+/**
+ * Get After-tax Revenue Report
+ * @param {Object} params - { start_date, end_date }
+ * @returns {Promise} Net revenue after discounts, returns and taxes
+ */
+export const getAfterTaxRevenueReport = async (params = {}) => {
+  const response = await axiosInstance.get("/admin/reports/after-tax-revenue", {
+    params,
+  });
+  return response.data;
+};
+
 export default {
   getRevenueAndProfitChart,
   getTopSellingProducts,
@@ -98,4 +110,5 @@ export default {
   getRescueEfficiencyReport,
   getCashFlowChart,
   getCostRetailTrendChart,
+  getAfterTaxRevenueReport,
 };
