@@ -41,6 +41,118 @@ const posService = {
     }
   },
 
+  getOpenTransactions: async () => {
+    try {
+      const response = await axiosInstance.get('/seller/pos/transactions/open');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  holdTransaction: async (transactionId) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/hold`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  resumeTransaction: async (transactionId) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/resume`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  resolveCustomerByQr: async (qrData) => {
+    try {
+      const response = await axiosInstance.post('/seller/pos/customers/resolve-qr', {
+        qr_data: qrData,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  searchCustomers: async (keyword, limit = 20) => {
+    try {
+      const response = await axiosInstance.get('/seller/pos/customers/search', {
+        params: { keyword, limit },
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  assignCustomer: async (transactionId, userId) => {
+    try {
+      const response = await axiosInstance.patch(
+        `/seller/pos/transactions/${transactionId}/customer`,
+        { user_id: userId },
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  getCustomerCoupons: async (transactionId, params = {}) => {
+    try {
+      const response = await axiosInstance.get(
+        `/seller/pos/transactions/${transactionId}/customer-coupons`,
+        { params },
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  redeemCustomerCoupon: async (transactionId, couponId) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/customer-coupons/redeem`,
+        { coupon_id: couponId },
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  applyCoupon: async (transactionId, couponCode) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/coupon/apply`,
+        { coupon_code: couponCode },
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  removeCoupon: async (transactionId) => {
+    try {
+      const response = await axiosInstance.delete(
+        `/seller/pos/transactions/${transactionId}/coupon`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   addItem: async (transactionId, payload) => {
     try {
       const response = await axiosInstance.post(
