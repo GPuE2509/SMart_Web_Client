@@ -101,7 +101,7 @@ export const menuItems = [
     children: [
       {
         key: "payslips",
-        label: "Payslips",
+        label: "Bảng lương",
         icon: DollarOutlined,
         path: "/admin/payslips",
       },
