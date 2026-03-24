@@ -64,6 +64,18 @@ const posService = {
     }
   },
 
+  updateItemQuantity: async (transactionId, itemId, quantity) => {
+    try {
+      const response = await axiosInstance.patch(
+        `/seller/pos/transactions/${transactionId}/items/${itemId}`,
+        { quantity },
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   createPayOSPayment: async (transactionId) => {
     try {
       const response = await axiosInstance.post(

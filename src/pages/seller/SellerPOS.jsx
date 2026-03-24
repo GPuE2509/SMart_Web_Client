@@ -272,6 +272,21 @@ function SellerPOS() {
 		}
 	};
 
+	const handleUpdateItemQuantity = async (itemId, newQuantity) => {
+		try {
+			const response = await posService.updateItemQuantity(transactionId, itemId, newQuantity);
+			setTransaction(response.data);
+			if (newQuantity === 0) {
+				message.success('Đã xóa sản phẩm khỏi giao dịch');
+			} else {
+				message.success('Đã cập nhật số lượng sản phẩm');
+			}
+			fetchProducts(pagination.page);
+		} catch (error) {
+			message.error(error.message || 'Không thể cập nhật số lượng sản phẩm');
+		}
+	};
+
 	const handlePayWithPayOS = async () => {
 		if (!transactionId) {
 			message.warning('Vui lòng tạo transaction trước');
@@ -355,7 +370,17 @@ function SellerPOS() {
 		{
 			title: 'SL',
 			dataIndex: 'quantity',
-			width: 60,
+			width: 100,
+			render: (quantity, record) => (
+				<InputNumber
+					min={0}
+					max={999}
+					value={quantity}
+					onChange={(value) => handleUpdateItemQuantity(record._id, value || 0)}
+					size="small"
+					style={{ width: 70 }}
+				/>
+			),
 		},
 		{
 			title: 'Đơn giá',
