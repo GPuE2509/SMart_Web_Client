@@ -4,6 +4,7 @@ import {
 	Button,
 	Card,
 	Col,
+	Divider,
 	Empty,
 	Image,
 	Input,
@@ -17,6 +18,7 @@ import {
 	Select,
 	Space,
 	Statistic,
+	Tag,
 	Table,
 	Typography,
 } from 'antd';
@@ -25,14 +27,19 @@ import {
 	DeleteOutlined,
 	MailOutlined,
 	PrinterOutlined,
+	PauseCircleOutlined,
+	PlayCircleOutlined,
 	QrcodeOutlined,
+	ReloadOutlined,
 	PlusOutlined,
 	SearchOutlined,
 	ShoppingCartOutlined,
 	AppstoreOutlined,
+	UserOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import posService from '../../services/posService';
+import BarcodeScanner from '../../components/BarcodeScanner';
 
 const { Title, Text } = Typography;
 const ACTIVE_TRANSACTION_STORAGE_KEY = 'seller_pos_active_transaction_id';
@@ -71,6 +78,19 @@ function SellerPOS() {
 	const [debouncedSearch, setDebouncedSearch] = useState('');
 	const [categoryFilter, setCategoryFilter] = useState(undefined);
 	const [stockFilter, setStockFilter] = useState('all');
+	const [qrScannerOpen, setQrScannerOpen] = useState(false);
+	const [resolvingCustomer, setResolvingCustomer] = useState(false);
+	const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
+	const [customerSearching, setCustomerSearching] = useState(false);
+	const [customerCandidates, setCustomerCandidates] = useState([]);
+	const [couponLoading, setCouponLoading] = useState(false);
+	const [customerCoupons, setCustomerCoupons] = useState({
+		wallet_coupons: [],
+		redeemable_coupons: [],
+	});
+	const [selectedCouponCode, setSelectedCouponCode] = useState('');
+	const [openTransactions, setOpenTransactions] = useState([]);
+	const [openTransactionsLoading, setOpenTransactionsLoading] = useState(false);
 
 	const fetchCategories = useCallback(async () => {
 		try {
@@ -123,12 +143,25 @@ function SellerPOS() {
 		try {
 			const response = await posService.getTransactionDetail(id);
 			setTransaction(response.data);
+			setSelectedCouponCode(response?.data?.order?.coupon_id?.code || '');
 		} catch (error) {
 			setTransaction(null);
 			setTransactionId('');
 			message.error(error.message || 'Không thể tải transaction');
 		} finally {
 			setTransactionLoading(false);
+		}
+	}, []);
+
+	const fetchOpenTransactions = useCallback(async () => {
+		setOpenTransactionsLoading(true);
+		try {
+			const response = await posService.getOpenTransactions();
+			setOpenTransactions(response.data || []);
+		} catch (error) {
+			console.error('Fetch open transactions error:', error);
+		} finally {
+			setOpenTransactionsLoading(false);
 		}
 	}, []);
 
@@ -148,13 +181,49 @@ function SellerPOS() {
 		setDebouncedSearch('');
 		setCategoryFilter(undefined);
 		setStockFilter('all');
+		setQrScannerOpen(false);
+		setResolvingCustomer(false);
+		setCustomerSearchKeyword('');
+		setCustomerSearching(false);
+		setCustomerCandidates([]);
+		setCouponLoading(false);
+		setCustomerCoupons({ wallet_coupons: [], redeemable_coupons: [] });
+		setSelectedCouponCode('');
 		setPagination((prev) => ({ ...prev, page: 1 }));
+		fetchOpenTransactions();
 		navigate('/seller/pos', { replace: true });
-	}, [navigate]);
+	}, [navigate, fetchOpenTransactions]);
+
+	const fetchCustomerCoupons = useCallback(async () => {
+		if (!transactionId || !transaction?.order?.user_id?._id) {
+			setCustomerCoupons({ wallet_coupons: [], redeemable_coupons: [] });
+			setSelectedCouponCode('');
+			return;
+		}
+
+		setCouponLoading(true);
+		try {
+			const response = await posService.getCustomerCoupons(transactionId);
+			const couponData = response?.data?.coupons || {
+				wallet_coupons: [],
+				redeemable_coupons: [],
+			};
+			setCustomerCoupons(couponData);
+		} catch (error) {
+			setCustomerCoupons({ wallet_coupons: [], redeemable_coupons: [] });
+			message.error(error.message || 'Không thể tải coupon của khách hàng');
+		} finally {
+			setCouponLoading(false);
+		}
+	}, [transactionId, transaction?.order?.user_id?._id]);
 
 	useEffect(() => {
 		fetchCategories();
 	}, [fetchCategories]);
+
+	useEffect(() => {
+		fetchOpenTransactions();
+	}, [fetchOpenTransactions]);
 
 	useEffect(() => {
 		if (typeof window === 'undefined') return;
@@ -202,6 +271,10 @@ function SellerPOS() {
 	}, [transactionId, fetchTransaction]);
 
 	useEffect(() => {
+		fetchCustomerCoupons();
+	}, [fetchCustomerCoupons]);
+
+	useEffect(() => {
 		const isPayOSFlow = searchParams.get('payos');
 		const flow = searchParams.get('flow');
 		const callbackTransactionId = searchParams.get('transactionId');
@@ -246,8 +319,12 @@ function SellerPOS() {
 			const createdId = response.data?._id;
 			setTransactionId(createdId);
 			setTransaction({ order: response.data, items: [] });
+			setCustomerCandidates([]);
+			setCustomerCoupons({ wallet_coupons: [], redeemable_coupons: [] });
+			setSelectedCouponCode('');
 			message.success('Đã tạo Sales Transaction');
 			fetchTransaction(createdId);
+			fetchOpenTransactions();
 		} catch (error) {
 			message.error(error.message || 'Không thể tạo transaction');
 		} finally {
@@ -381,6 +458,186 @@ function SellerPOS() {
 		}
 	};
 
+	const handleHoldTransaction = async () => {
+		if (!transactionId) {
+			message.warning('Không có transaction để hold');
+			return;
+		}
+
+		setTransactionLoading(true);
+		try {
+			await posService.holdTransaction(transactionId);
+			setTransaction(null);
+			setTransactionId('');
+			setSelectedCouponCode('');
+			if (typeof window !== 'undefined') {
+				window.localStorage.removeItem(ACTIVE_TRANSACTION_STORAGE_KEY);
+			}
+			await fetchOpenTransactions();
+			message.success('Đã hold transaction. Bạn có thể thanh toán khách tiếp theo.');
+		} catch (error) {
+			message.error(error.message || 'Không thể hold transaction');
+		} finally {
+			setTransactionLoading(false);
+		}
+	};
+
+	const handleResumeTransaction = async (id) => {
+		if (!id) return;
+		setTransactionLoading(true);
+		try {
+			const response = await posService.resumeTransaction(id);
+			setTransactionId(id);
+			setTransaction(response.data);
+			setSelectedCouponCode(response?.data?.order?.coupon_id?.code || '');
+			await fetchOpenTransactions();
+			message.success('Đã mở lại transaction');
+		} catch (error) {
+			message.error(error.message || 'Không thể mở transaction');
+		} finally {
+			setTransactionLoading(false);
+		}
+	};
+
+	const assignCustomerToTransaction = async (customerId, successMessage) => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		setResolvingCustomer(true);
+		try {
+			const response = await posService.assignCustomer(transactionId, customerId);
+			setTransaction(response.data);
+			setSelectedCouponCode(response?.data?.order?.coupon_id?.code || '');
+			await fetchCustomerCoupons();
+			message.success(successMessage || 'Đã gán khách hàng vào transaction');
+		} catch (error) {
+			message.error(error.message || 'Không thể gán khách hàng');
+		} finally {
+			setResolvingCustomer(false);
+		}
+	};
+
+	const handleResolveCustomerByQr = async (rawQrData) => {
+		const qrData = String(rawQrData || '').trim();
+		if (!qrData) {
+			message.warning('Dữ liệu QR không hợp lệ');
+			return;
+		}
+
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		setResolvingCustomer(true);
+		try {
+			const response = await posService.resolveCustomerByQr(qrData);
+			const customer = response?.data;
+			if (!customer?._id) {
+				throw new Error('Không đọc được khách hàng từ QR');
+			}
+
+			await assignCustomerToTransaction(customer._id, 'Quét QR và gán khách hàng thành công');
+			setQrScannerOpen(false);
+		} catch (error) {
+			message.error(error.message || 'Không thể quét QR khách hàng');
+		} finally {
+			setResolvingCustomer(false);
+		}
+	};
+
+	const handleRedeemCoupon = async (couponId) => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		setCouponLoading(true);
+		try {
+			await posService.redeemCustomerCoupon(transactionId, couponId);
+			await fetchTransaction(transactionId);
+			await fetchCustomerCoupons();
+			message.success('Đổi coupon bằng điểm thành công');
+		} catch (error) {
+			message.error(error.message || 'Không thể đổi coupon bằng điểm');
+		} finally {
+			setCouponLoading(false);
+		}
+	};
+
+	const handleSearchCustomers = async () => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		const keyword = customerSearchKeyword.trim();
+		if (!keyword) {
+			message.warning('Vui lòng nhập email hoặc số điện thoại khách hàng');
+			return;
+		}
+
+		setCustomerSearching(true);
+		try {
+			const response = await posService.searchCustomers(keyword, 10);
+			setCustomerCandidates(response?.data || []);
+			if (!response?.data?.length) {
+				message.info('Không tìm thấy khách hàng phù hợp');
+			}
+		} catch (error) {
+			message.error(error.message || 'Không thể tìm khách hàng');
+		} finally {
+			setCustomerSearching(false);
+		}
+	};
+
+	const handleApplyCoupon = async () => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		if (!selectedCouponCode) {
+			message.warning('Vui lòng chọn mã giảm giá');
+			return;
+		}
+
+		setCouponLoading(true);
+		try {
+			const response = await posService.applyCoupon(transactionId, selectedCouponCode);
+			setTransaction(response.data);
+			setSelectedCouponCode(response?.data?.order?.coupon_id?.code || selectedCouponCode);
+			await fetchCustomerCoupons();
+			message.success('Áp mã giảm giá thành công');
+		} catch (error) {
+			message.error(error.message || 'Không thể áp mã giảm giá');
+		} finally {
+			setCouponLoading(false);
+		}
+	};
+
+	const handleRemoveCoupon = async () => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		setCouponLoading(true);
+		try {
+			const response = await posService.removeCoupon(transactionId);
+			setTransaction(response.data);
+			setSelectedCouponCode('');
+			await fetchCustomerCoupons();
+			message.success('Đã xóa mã giảm giá');
+		} catch (error) {
+			message.error(error.message || 'Không thể xóa mã giảm giá');
+		} finally {
+			setCouponLoading(false);
+		}
+	};
+
 	const openReceiptPrintWindow = useCallback((receipt) => {
 		if (typeof window === 'undefined') return;
 		const receiptWindow = window.open('', '_blank', 'width=860,height=720');
@@ -492,6 +749,11 @@ function SellerPOS() {
 	};
 
 	const orderSummary = useMemo(() => transaction?.order || {}, [transaction]);
+	const currentCustomer = orderSummary?.user_id || null;
+	const currentCouponCode = orderSummary?.coupon_id?.code || '';
+	const walletCoupons = customerCoupons.wallet_coupons || [];
+	const redeemableCoupons = customerCoupons.redeemable_coupons || [];
+	const redeemableCouponsAvailable = redeemableCoupons.filter((item) => item?.can_redeem);
 	const canCompleteCash =
 		Boolean(transaction?.items?.length) &&
 		Number(orderSummary.final_amount || 0) > 0 &&
@@ -569,26 +831,200 @@ function SellerPOS() {
 						<Title level={3} style={{ margin: 0 }}>
 							POS thanh toán
 						</Title>
-						<Button
-							type="primary"
-							icon={<ShoppingCartOutlined />}
-							onClick={createTransaction}
-							loading={transactionLoading}
-							disabled={Boolean(transactionId)}
-						>
-							{transactionId ? 'Đang có Sales Transaction' : 'Tạo đơn thanh toán'}
-						</Button>
+								<Space wrap>
+									<Button
+										type="primary"
+										icon={<ShoppingCartOutlined />}
+										onClick={createTransaction}
+										loading={transactionLoading}
+									>
+										Tạo đơn thanh toán mới
+									</Button>
+									<Button
+										icon={<PauseCircleOutlined />}
+										onClick={handleHoldTransaction}
+										disabled={!transactionId}
+									>
+										Hold đơn hiện tại
+									</Button>
+								</Space>
 					</div>
+
+							<Card title="Sales Transaction đang mở" loading={openTransactionsLoading}>
+								<List
+									size="small"
+									dataSource={openTransactions}
+									locale={{ emptyText: 'Chưa có transaction đang mở' }}
+									renderItem={(item) => (
+										<List.Item
+											actions={[
+												<Button
+													key={`resume-${item._id}`}
+													type={item._id === transactionId ? 'default' : 'link'}
+													icon={<PlayCircleOutlined />}
+													disabled={item._id === transactionId}
+													onClick={() => handleResumeTransaction(item._id)}
+												>
+													{item._id === transactionId ? 'Đang mở' : 'Mở'}
+												</Button>,
+											]}
+										>
+											<Space direction="vertical" size={0}>
+												<Text strong>
+													{item.order_code}{' '}
+													{item._id === transactionId && <Tag color="green">Đang mở</Tag>}
+													{item.is_on_hold && <Tag color="orange">Đang hold</Tag>}
+												</Text>
+												<Text type="secondary">
+													{item.user_id?.full_name || 'Khách vãng lai'} - {item.item_count || 0} món - {formatCurrency(item.final_amount || 0)}
+												</Text>
+											</Space>
+										</List.Item>
+									)}
+								/>
+							</Card>
 
 					{!transactionId && (
 						<Empty
-							description="Chưa có đơn thanh toán. Hãy bấm Tạo đơn thanh toán để bắt đầu."
+									description="Chưa chọn transaction. Hãy tạo mới hoặc mở một đơn đang hold để tiếp tục."
 							image={Empty.PRESENTED_IMAGE_SIMPLE}
 						/>
 					)}
 
 					{transactionId && (
 						<>
+							<Card title="Nhận diện khách hàng và coupon" loading={resolvingCustomer || couponLoading}>
+								<Row gutter={[16, 16]}>
+									<Col xs={24} xl={12}>
+										<Space direction="vertical" style={{ width: '100%' }} size="small">
+											<Text strong>Khách hàng hiện tại</Text>
+											{currentCustomer ? (
+												<div style={{ border: ITEM_FIELD_BORDER, borderRadius: 8, padding: 12 }}>
+													<Space direction="vertical" size={2}>
+														<Text strong>{currentCustomer.full_name || 'Khách hàng'}</Text>
+														<Text type="secondary">ID: {currentCustomer._id}</Text>
+														<Text type="secondary">Email: {currentCustomer.email || '-'}</Text>
+														<Text type="secondary">Phone: {currentCustomer.phone || '-'}</Text>
+														<Text type="secondary">
+															Điểm tích lũy: {(currentCustomer.loyalty_points || 0).toLocaleString('vi-VN')}
+														</Text>
+													</Space>
+												</div>
+											) : (
+												<Tag color="default" icon={<UserOutlined />}>
+													Khách vãng lai (chưa gán)
+												</Tag>
+											)}
+
+											<Space wrap>
+												<Button icon={<QrcodeOutlined />} onClick={() => setQrScannerOpen(true)}>
+													Quét QR khách hàng
+												</Button>
+												<Button icon={<ReloadOutlined />} onClick={fetchCustomerCoupons} disabled={!currentCustomer?._id}>
+													Làm mới coupon
+												</Button>
+											</Space>
+										</Space>
+									</Col>
+
+									<Col xs={24} xl={12}>
+										<Space direction="vertical" style={{ width: '100%' }} size="small">
+											<Text strong>Tìm khách theo email hoặc số điện thoại</Text>
+											<Input.Search
+												value={customerSearchKeyword}
+												onChange={(e) => setCustomerSearchKeyword(e.target.value)}
+												onSearch={handleSearchCustomers}
+												enterButton="Tìm"
+												placeholder="Ví dụ: 09..., customer@email.com"
+												loading={customerSearching}
+											/>
+
+											<List
+												size="small"
+												dataSource={customerCandidates}
+												locale={{ emptyText: 'Chưa có kết quả tìm khách hàng' }}
+												renderItem={(customer) => (
+													<List.Item
+														actions={[
+															<Button
+																key={customer._id}
+																type="link"
+																onClick={() => assignCustomerToTransaction(customer._id, 'Đã gán khách hàng thành công')}
+															>
+																Gán vào đơn
+															</Button>,
+														]}
+													>
+														<Space direction="vertical" size={0}>
+															<Text strong>{customer.full_name || 'Khách hàng'}</Text>
+															<Text type="secondary">{customer.phone || '-'}</Text>
+															<Text type="secondary">{customer.email || '-'}</Text>
+														</Space>
+													</List.Item>
+												)}
+											/>
+										</Space>
+									</Col>
+								</Row>
+
+								{currentCustomer?._id && (
+									<>
+										<Divider style={{ margin: '14px 0' }} />
+										<Row gutter={[12, 12]} align="middle">
+											<Col xs={24} lg={14}>
+												<Select
+													placeholder="Chọn coupon trong ví khách hàng"
+													value={selectedCouponCode || undefined}
+													onChange={(value) => setSelectedCouponCode(value || '')}
+													style={{ width: '100%' }}
+													allowClear
+													options={walletCoupons.map((item) => ({
+														label: `${item.coupon?.code || 'N/A'}${item.can_apply ? '' : ' - Chưa áp dụng được'}`,
+														value: item.coupon?.code,
+														disabled: !item.can_apply,
+													}))}
+												/>
+											</Col>
+											<Col xs={24} lg={10}>
+												<Space wrap>
+													<Button type="primary" onClick={handleApplyCoupon} loading={couponLoading}>
+														Áp mã giảm giá
+													</Button>
+													<Button onClick={handleRemoveCoupon} disabled={!currentCouponCode}>
+														Gỡ mã
+													</Button>
+												</Space>
+											</Col>
+										</Row>
+
+										<Space direction="vertical" style={{ width: '100%', marginTop: 10 }} size={4}>
+											<Text type="secondary">Coupon khách hàng đủ điểm để đổi</Text>
+											<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+												{redeemableCouponsAvailable.length === 0 && <Text type="secondary">Khách hàng chưa đủ điểm để đổi coupon nào</Text>}
+												{redeemableCouponsAvailable.map((item) => (
+													<Space
+														key={item.coupon?._id}
+														size={6}
+														style={{ border: ITEM_FIELD_BORDER, borderRadius: 8, padding: '4px 8px' }}
+													>
+														<Tag color="blue">
+															{item.coupon?.code} - cần {(item.coupon?.points_required || 0).toLocaleString('vi-VN')} điểm
+														</Tag>
+														<Button
+															type="link"
+															disabled={couponLoading}
+															onClick={() => handleRedeemCoupon(item.coupon?._id)}
+														>
+															Đổi coupon
+														</Button>
+													</Space>
+												))}
+											</div>
+										</Space>
+									</>
+								)}
+							</Card>
+
 							<Row gutter={16}>
 								<Col xs={24} sm={12} md={8} lg={6}>
 									<Input
@@ -780,6 +1216,16 @@ function SellerPOS() {
 												formatter={(value) => formatCurrency(value)}
 											/>
 											<Statistic
+												title="Giảm giá"
+												value={orderSummary.discount_amount || 0}
+												formatter={(value) => formatCurrency(value)}
+											/>
+											{currentCouponCode ? (
+												<Tag color="green">Đang áp dụng: {currentCouponCode}</Tag>
+											) : (
+												<Tag>Chưa áp mã giảm giá</Tag>
+											)}
+											<Statistic
 												title="Tổng thanh toán"
 												value={orderSummary.final_amount || 0}
 												formatter={(value) => formatCurrency(value)}
@@ -832,6 +1278,12 @@ function SellerPOS() {
 					)}
 				</Space>
 			</Modal>
+
+			<BarcodeScanner
+				visible={qrScannerOpen}
+				onClose={() => setQrScannerOpen(false)}
+				onScan={(decodedText) => handleResolveCustomerByQr(decodedText)}
+			/>
 
 			<Modal
 				title="Issue Receipt"
