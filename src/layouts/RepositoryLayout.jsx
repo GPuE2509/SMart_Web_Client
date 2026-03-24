@@ -8,6 +8,7 @@ import {
   LockOutlined,
   MenuUnfoldOutlined,
   InboxOutlined,
+  DollarOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import authService from '../services/authService';
@@ -49,11 +50,20 @@ const RepositoryLayout = () => {
   }
 
   // Get current selected menu key from path
-  const selectedKey = location.pathname.includes('/batches') ? 'batches' : 'batches';
+  const getSelectedKey = () => {
+    if (location.pathname.includes('/payroll')) return 'payroll';
+    if (location.pathname.includes('/attendance')) return 'attendance';
+    return 'batches';
+  };
+  const selectedKey = getSelectedKey();
 
   const handleMenuClick = ({ key }) => {
     if (key === 'batches') {
       navigate('/repository/batches');
+    } else if (key === 'payroll') {
+      navigate('/repository/payroll');
+    } else if (key === 'attendance') {
+      navigate('/repository/attendance');
     }
   };
 
@@ -98,6 +108,12 @@ const RepositoryLayout = () => {
           label: 'Quản lý lô hàng',
         },
       ],
+    },
+    {
+      key: 'payroll',
+      icon: <DollarOutlined />,
+      label: 'Bảng lương',
+      onClick: () => navigate('/repository/payroll'),
     },
     {
       key: 'attendance',

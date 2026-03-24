@@ -19,9 +19,12 @@ import Recipes from '../pages/admin/Recipes';
 import Orders from '../pages/admin/Orders';
 import Payslips from '../pages/admin/Payslips';
 import SellerDashboard from '../pages/seller/SellerDashboard';
+import SellerOrders from '../pages/seller/SellerOrders';
+import SellerPayroll from '../pages/seller/SellerPayroll';
 import SellerPOS from '../pages/seller/SellerPOS';
 import RepositoryDashboard from '../pages/repository/RepositoryDashboard';
 import RepositoryProductBatches from '../pages/repository/ProductBatches';
+import RepositoryPayroll from '../pages/repository/RepositoryPayroll';
 import ProtectedRoute from './ProtectedRoute';
 import PublicRoute from './PublicRoute';
 import RepositoryAttendance from '../pages/repository/RepositoryAttendance';
@@ -150,6 +153,14 @@ const router = createBrowserRouter([
         element: <SellerDashboard />,
       },
       {
+        path: 'orders',
+        element: <SellerOrders />,
+      },
+      {
+        path: 'payroll',
+        element: <SellerPayroll />,
+      },
+      {
         path: 'change-password',
         element: <ChangePassword />,
       },
@@ -175,6 +186,10 @@ const router = createBrowserRouter([
       {
         path: 'batches',
         element: <RepositoryProductBatches />,
+      },
+      {
+        path: 'payroll',
+        element: <RepositoryPayroll />,
       },
       {
         path: 'change-password',
