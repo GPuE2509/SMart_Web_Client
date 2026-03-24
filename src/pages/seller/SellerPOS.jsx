@@ -79,6 +79,7 @@ function SellerPOS() {
 	const [categoryFilter, setCategoryFilter] = useState(undefined);
 	const [stockFilter, setStockFilter] = useState('all');
 	const [qrScannerOpen, setQrScannerOpen] = useState(false);
+	const [productBarcodeScannerOpen, setProductBarcodeScannerOpen] = useState(false);
 	const [resolvingCustomer, setResolvingCustomer] = useState(false);
 	const [customerSearchKeyword, setCustomerSearchKeyword] = useState('');
 	const [customerSearching, setCustomerSearching] = useState(false);
@@ -182,6 +183,7 @@ function SellerPOS() {
 		setCategoryFilter(undefined);
 		setStockFilter('all');
 		setQrScannerOpen(false);
+		setProductBarcodeScannerOpen(false);
 		setResolvingCustomer(false);
 		setCustomerSearchKeyword('');
 		setCustomerSearching(false);
@@ -344,6 +346,34 @@ function SellerPOS() {
 			fetchProducts(pagination.page);
 		} catch (error) {
 			message.error(error.message || 'Không thể thêm sản phẩm');
+		}
+	};
+
+	const handleScanProductBarcode = async (rawBarcode) => {
+		const barcode = String(rawBarcode || '').trim();
+
+		if (!barcode) {
+			message.warning('Mã vạch không hợp lệ');
+			return;
+		}
+
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+
+		setProductBarcodeScannerOpen(false);
+
+		try {
+			const response = await posService.addItemByBarcode(transactionId, {
+				barcode,
+				quantity: 1,
+			});
+			setTransaction(response.data);
+			message.success('Đã quét và thêm sản phẩm vào giao dịch');
+			fetchProducts(pagination.page);
+		} catch (error) {
+			message.error(error.message || 'Không thể thêm sản phẩm từ mã vạch');
 		}
 	};
 
@@ -1064,6 +1094,16 @@ function SellerPOS() {
 										]}
 									/>
 								</Col>
+								<Col xs={24} sm={12} md={8} lg={4}>
+									<Button
+										icon={<QrcodeOutlined />}
+										onClick={() => setProductBarcodeScannerOpen(true)}
+										disabled={!transactionId}
+										style={{ width: '100%' }}
+									>
+										Quét mã vạch hàng hóa
+									</Button>
+								</Col>
 							</Row>
 
 							<Row gutter={16}>
@@ -1283,6 +1323,12 @@ function SellerPOS() {
 				visible={qrScannerOpen}
 				onClose={() => setQrScannerOpen(false)}
 				onScan={(decodedText) => handleResolveCustomerByQr(decodedText)}
+			/>
+
+			<BarcodeScanner
+				visible={productBarcodeScannerOpen}
+				onClose={() => setProductBarcodeScannerOpen(false)}
+				onScan={(decodedText) => handleScanProductBarcode(decodedText)}
 			/>
 
 			<Modal

@@ -165,6 +165,18 @@ const posService = {
     }
   },
 
+  addItemByBarcode: async (transactionId, payload) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/items/scan-barcode`,
+        payload,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
   removeItem: async (transactionId, itemId) => {
     try {
       const response = await axiosInstance.delete(
