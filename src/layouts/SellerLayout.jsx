@@ -7,6 +7,7 @@ import {
   LockOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  DashboardOutlined,
   ShoppingOutlined,
   ShoppingCartOutlined,
   DollarOutlined,
@@ -50,15 +51,27 @@ const SellerLayout = () => {
     );
   }
 
-  const selectedKey = location.pathname.includes('/attendance') ? 'attendance' : 'pos';
+  const selectedKey = location.pathname.includes('/attendance')
+    ? 'attendance'
+    : location.pathname.includes('/dashboard')
+      ? 'dashboard'
+      : location.pathname.includes('/orders')
+        ? 'orders'
+        : location.pathname.includes('/payroll')
+          ? 'payroll'
+          : 'pos';
 
   const handleMenuClick = ({ key }) => {
-    if (key === 'pos') {
-      navigate('/seller/pos');
-      return;
-    }
-    if (key === 'attendance') {
-      navigate('/seller/attendance');
+    const routes = {
+      dashboard: '/seller/dashboard',
+      pos: '/seller/pos',
+      orders: '/seller/orders',
+      payroll: '/seller/payroll',
+      attendance: '/seller/attendance',
+    };
+
+    if (routes[key]) {
+      navigate(routes[key]);
     }
   };
 
@@ -93,22 +106,19 @@ const SellerLayout = () => {
 
   const menuItems = [
     {
-      key: 'seller',
-      icon: <ShoppingOutlined />,
-      label: 'Trang chủ',
-      onClick: () => navigate('/seller'),
+      key: 'dashboard',
+      icon: <DashboardOutlined />,
+      label: 'Dashboard',
     },
     {
       key: 'orders',
       icon: <ShoppingCartOutlined />,
       label: 'Đơn hàng',
-      onClick: () => navigate('/seller/orders'),
     },
     {
       key: 'payroll',
       icon: <DollarOutlined />,
       label: 'Bảng lương',
-      onClick: () => navigate('/seller/payroll'),
     },
     {
       type: 'group',
