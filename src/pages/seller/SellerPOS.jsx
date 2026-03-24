@@ -826,7 +826,31 @@ function SellerPOS() {
 		{
 			title: 'Đơn giá',
 			dataIndex: 'unit_price',
-			render: (value) => formatCurrency(value),
+			render: (value, record) => {
+				const allocations = Array.isArray(record?.batch_allocations) ? record.batch_allocations : [];
+				if (!allocations.length) {
+					return formatCurrency(value);
+				}
+
+				const uniquePrices = new Set(
+					allocations.map((item) => Number(item?.unit_price || 0)),
+				);
+
+				if (uniquePrices.size <= 1) {
+					return formatCurrency(value);
+				}
+
+				return (
+					<Space direction="vertical" size={0}>
+						<Text strong>Theo lô</Text>
+						<Text type="secondary" style={{ fontSize: 12 }}>
+							{allocations
+								.map((item) => `${item.quantity} x ${formatCurrency(item.unit_price)}`)
+								.join(' + ')}
+						</Text>
+					</Space>
+				);
+			},
 		},
 		{
 			title: 'Thành tiền',
@@ -1218,6 +1242,26 @@ function SellerPOS() {
 																				{stock.label}
 																			</Text>
 																		</div>
+																	</div>
+																	<div style={{ border: ITEM_FIELD_BORDER, borderRadius: 4, padding: '2px 8px' }}>
+																		<Text>
+																			{(() => {
+																				const discountedStock = Number(item.discounted_stock || 0);
+																				const breakdown = Array.isArray(item.discounted_stock_breakdown)
+																					? item.discounted_stock_breakdown
+																					: [];
+																				if (!discountedStock || !breakdown.length) {
+																					return 'Đang giảm giá: 0 sản phẩm';
+																				}
+
+																				const breakdownText = breakdown
+																					.filter((part) => Number(part?.quantity || 0) > 0)
+																					.map((part) => `${Number(part.quantity)} sp (-${Number(part.discount_percentage || 0)}%)`)
+																					.join(', ');
+
+																				return `Đang giảm giá: ${discountedStock} sản phẩm (${breakdownText})`;
+																			})()}
+																		</Text>
 																	</div>
 																</div>
 															</div>
