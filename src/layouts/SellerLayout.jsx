@@ -8,7 +8,8 @@ import {
   MenuUnfoldOutlined,
   LockOutlined,
   ShoppingOutlined,
-  AppstoreOutlined,
+  ShoppingCartOutlined,
+  DollarOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import authService from '../services/authService';
@@ -80,14 +81,20 @@ const SellerLayout = () => {
     {
       key: 'seller',
       icon: <ShoppingOutlined />,
-      label: 'Bán hàng',
+      label: 'Trang chủ',
       onClick: () => navigate('/seller'),
     },
     {
-      key: 'products',
-      icon: <AppstoreOutlined />,
-      label: 'Sản phẩm',
-      onClick: () => navigate('/seller/products'),
+      key: 'orders',
+      icon: <ShoppingCartOutlined />,
+      label: 'Đơn hàng',
+      onClick: () => navigate('/seller/orders'),
+    },
+    {
+      key: 'payroll',
+      icon: <DollarOutlined />,
+      label: 'Bảng lương',
+      onClick: () => navigate('/seller/payroll'),
     },
     {
       key: 'attendance',
