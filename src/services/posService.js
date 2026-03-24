@@ -87,10 +87,11 @@ const posService = {
     }
   },
 
-  completeCashPayment: async (transactionId) => {
+  completeCodPayment: async (transactionId, payload) => {
     try {
       const response = await axiosInstance.post(
-        `/seller/pos/transactions/${transactionId}/complete-cash`,
+        `/seller/pos/transactions/${transactionId}/complete-cod`,
+        payload,
       );
       return response.data;
     } catch (error) {
@@ -113,6 +114,18 @@ const posService = {
     try {
       const response = await axiosInstance.delete(
         `/seller/pos/transactions/${transactionId}`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  },
+
+  issueReceipt: async (transactionId, payload = {}) => {
+    try {
+      const response = await axiosInstance.post(
+        `/seller/pos/transactions/${transactionId}/issue-receipt`,
+        payload,
       );
       return response.data;
     } catch (error) {

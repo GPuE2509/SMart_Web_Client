@@ -11,6 +11,7 @@ import {
   Typography,
   Tooltip,
   Button,
+  InputNumber,
 } from 'antd';
 import {
   DollarOutlined,
@@ -33,6 +34,7 @@ import {
   getRescueEfficiencyReport,
   getCashFlowChart,
   getCostRetailTrendChart,
+  getAfterTaxRevenueReport,
 } from '../../services/salesReportService';
 import { exportReportToPdf } from '../../utils/reportPdfExport';
 
@@ -73,6 +75,13 @@ function Reports() {
   const [rescueEfficiency, setRescueEfficiency] = useState(null);
   const [cashFlowData, setCashFlowData] = useState({ data: [], summary: {} });
   const [costRetailData, setCostRetailData] = useState({ data: [], summary: {} });
+  const [afterTaxRevenue, setAfterTaxRevenue] = useState({ summary: {}, tax_breakdown: {} });
+  const [afterTaxRates, setAfterTaxRates] = useState({
+    personal_income_tax_rate: 0.05,
+    small_business_tax_rate: 0.03,
+    corporate_tax_rate: 0.2,
+    special_excise_tax_rate: 0.1,
+  });
 
   // Loading states
   const [loadingRevenue, setLoadingRevenue] = useState(false);
@@ -81,6 +90,7 @@ function Reports() {
   const [loadingRescue, setLoadingRescue] = useState(false);
   const [loadingCashFlow, setLoadingCashFlow] = useState(false);
   const [loadingCostRetail, setLoadingCostRetail] = useState(false);
+  const [loadingAfterTax, setLoadingAfterTax] = useState(false);
 
   /**
    * Fetch Revenue & Profit data
@@ -207,6 +217,32 @@ function Reports() {
   };
 
   /**
+   * Fetch After-tax Revenue Report
+   */
+  const fetchAfterTaxRevenue = async () => {
+    setLoadingAfterTax(true);
+    try {
+      const params = {
+        start_date: dateRange[0]?.format('YYYY-MM-DD'),
+        end_date: dateRange[1]?.format('YYYY-MM-DD'),
+        ...afterTaxRates,
+      };
+      const response = await getAfterTaxRevenueReport(params);
+      if (response.success) {
+        setAfterTaxRevenue(response.data);
+        if (response.data?.tax_rates) {
+          setAfterTaxRates(response.data.tax_rates);
+        }
+      }
+    } catch (error) {
+      message.error('Không thể tải báo cáo doanh thu sau khấu trừ');
+      console.error(error);
+    } finally {
+      setLoadingAfterTax(false);
+    }
+  };
+
+  /**
    * Fetch Rescue Efficiency Report
    */
   const fetchRescueEfficiency = async () => {
@@ -243,6 +279,7 @@ function Reports() {
     fetchRescueEfficiency();
     fetchCashFlow();
     fetchCostRetailTrend();
+    fetchAfterTaxRevenue();
   }, [period, dateRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -717,6 +754,187 @@ function Reports() {
             <div style={{ textAlign: 'center', padding: '80px 0' }}>
               <RiseOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 12, display: 'block' }} />
               <Text type="secondary">Không có dữ liệu xu hướng giá (cần đơn hàng có batch)</Text>
+            </div>
+          )}
+        </Spin>
+      </Card>
+
+      {/* Finance Report: After-tax Revenue (Net Revenue after deductions) */}
+      <Card
+        style={{ marginBottom: 20, borderRadius: 12 }}
+        title={
+          <Space size={8}>
+            <div style={{ width: 4, height: 18, background: '#13c2c2', borderRadius: 2 }} />
+            <Text strong style={{ fontSize: 15 }}>After-tax report: Doanh thu sau khấu trừ</Text>
+          </Space>
+        }
+        extra={
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Hiển thị doanh thu ròng sau khi trừ giảm giá, hoàn trả và thuế
+          </Text>
+        }
+      >
+        <Spin spinning={loadingAfterTax}>
+          <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
+            <Col xs={24}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Cấu hình thuế cho report (nhập dạng phần trăm, ví dụ 5 = 5%)
+              </Text>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                <Text style={{ fontSize: 12 }}>Thuế cá nhân (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  precision={2}
+                  style={{ width: '100%' }}
+                  value={(afterTaxRates.personal_income_tax_rate || 0) * 100}
+                  onChange={(value) =>
+                    setAfterTaxRates((prev) => ({
+                      ...prev,
+                      personal_income_tax_rate: Number(value || 0) / 100,
+                    }))
+                  }
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                <Text style={{ fontSize: 12 }}>Thuế buôn bán nhỏ lẻ (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  precision={2}
+                  style={{ width: '100%' }}
+                  value={(afterTaxRates.small_business_tax_rate || 0) * 100}
+                  onChange={(value) =>
+                    setAfterTaxRates((prev) => ({
+                      ...prev,
+                      small_business_tax_rate: Number(value || 0) / 100,
+                    }))
+                  }
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                <Text style={{ fontSize: 12 }}>Thuế doanh nghiệp (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  precision={2}
+                  style={{ width: '100%' }}
+                  value={(afterTaxRates.corporate_tax_rate || 0) * 100}
+                  onChange={(value) =>
+                    setAfterTaxRates((prev) => ({
+                      ...prev,
+                      corporate_tax_rate: Number(value || 0) / 100,
+                    }))
+                  }
+                />
+              </Space>
+            </Col>
+            <Col xs={24} md={6}>
+              <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                <Text style={{ fontSize: 12 }}>Thuế hàng hóa đặc biệt (%)</Text>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  precision={2}
+                  style={{ width: '100%' }}
+                  value={(afterTaxRates.special_excise_tax_rate || 0) * 100}
+                  onChange={(value) =>
+                    setAfterTaxRates((prev) => ({
+                      ...prev,
+                      special_excise_tax_rate: Number(value || 0) / 100,
+                    }))
+                  }
+                />
+              </Space>
+            </Col>
+            <Col xs={24}>
+              <Button type="primary" onClick={fetchAfterTaxRevenue} loading={loadingAfterTax}>
+                Áp dụng cấu hình thuế
+              </Button>
+            </Col>
+          </Row>
+
+          {(afterTaxRevenue?.summary?.gross_revenue || 0) > 0 ? (
+            <>
+              <Row gutter={[16, 16]} style={{ marginBottom: 12 }}>
+                <Col xs={24} sm={8}>
+                  <Card size="small" style={{ borderRadius: 8, borderTop: '3px solid #1677ff' }}>
+                    <Space direction="vertical" size={2}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Tổng doanh thu gộp</Text>
+                      <Text strong style={{ fontSize: 18, color: '#1677ff' }}>
+                        {formatCurrency(afterTaxRevenue.summary.gross_revenue)}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Card size="small" style={{ borderRadius: 8, borderTop: '3px solid #fa8c16' }}>
+                    <Space direction="vertical" size={2}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Tổng khoản khấu trừ</Text>
+                      <Text strong style={{ fontSize: 18, color: '#fa8c16' }}>
+                        {formatCurrency(
+                          (afterTaxRevenue.summary.total_discount || 0) +
+                          (afterTaxRevenue.summary.total_returns || 0) +
+                          (afterTaxRevenue.summary.total_tax || 0)
+                        )}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                  <Card size="small" style={{ borderRadius: 8, borderTop: '3px solid #52c41a' }}>
+                    <Space direction="vertical" size={2}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>Doanh thu ròng</Text>
+                      <Text strong style={{ fontSize: 18, color: '#52c41a' }}>
+                        {formatCurrency(afterTaxRevenue.summary.net_revenue)}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={[16, 12]}>
+                <Col xs={24} md={12}>
+                  <Card size="small" style={{ borderRadius: 8 }}>
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <Text strong>Chi tiết khấu trừ</Text>
+                      <Text type="secondary">Giảm giá: {formatCurrency(afterTaxRevenue.summary.total_discount)}</Text>
+                      <Text type="secondary">Hoàn trả: {formatCurrency(afterTaxRevenue.summary.total_returns)}</Text>
+                      <Text type="secondary">Doanh thu chịu thuế: {formatCurrency(afterTaxRevenue.summary.taxable_revenue)}</Text>
+                    </Space>
+                  </Card>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Card size="small" style={{ borderRadius: 8 }}>
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <Text strong>Chi tiết thuế</Text>
+                      <Text type="secondary">
+                        Thuế cá nhân: {formatCurrency(afterTaxRevenue.tax_breakdown?.personal_income_tax)}
+                      </Text>
+                      <Text type="secondary">
+                        Thuế buôn bán nhỏ lẻ: {formatCurrency(afterTaxRevenue.tax_breakdown?.small_business_tax)}
+                      </Text>
+                      <Text type="secondary">
+                        Thuế doanh nghiệp: {formatCurrency(afterTaxRevenue.tax_breakdown?.corporate_tax)}
+                      </Text>
+                      <Text type="secondary">
+                        Thuế hàng hóa đặc biệt: {formatCurrency(afterTaxRevenue.tax_breakdown?.special_excise_tax)}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Col>
+              </Row>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '50px 0' }}>
+              <DollarOutlined style={{ fontSize: 42, color: '#d9d9d9', marginBottom: 10, display: 'block' }} />
+              <Text type="secondary">Không có dữ liệu doanh thu sau khấu trừ trong khoảng thời gian này</Text>
             </div>
           )}
         </Spin>

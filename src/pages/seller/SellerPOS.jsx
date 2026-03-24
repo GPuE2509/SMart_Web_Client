@@ -23,6 +23,8 @@ import {
 import {
 	CheckCircleOutlined,
 	DeleteOutlined,
+	MailOutlined,
+	PrinterOutlined,
 	QrcodeOutlined,
 	PlusOutlined,
 	SearchOutlined,
@@ -52,6 +54,11 @@ function SellerPOS() {
 	const [transaction, setTransaction] = useState(null);
 	const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 	const [paymentInfo, setPaymentInfo] = useState(null);
+	const [codModalOpen, setCodModalOpen] = useState(false);
+	const [cashReceived, setCashReceived] = useState(null);
+	const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+	const [receiptEmail, setReceiptEmail] = useState('');
+	const [issuingReceipt, setIssuingReceipt] = useState(false);
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 
@@ -135,6 +142,8 @@ function SellerPOS() {
 		setQuantityMap({});
 		setPaymentInfo(null);
 		setPaymentModalOpen(false);
+		setCodModalOpen(false);
+		setCashReceived(null);
 		setSearchText('');
 		setDebouncedSearch('');
 		setCategoryFilter(undefined);
@@ -314,19 +323,42 @@ function SellerPOS() {
 		}
 	};
 
-	const handleCompleteCashPayment = async () => {
+	const handleOpenCodModal = () => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+		if (!canCompleteCash) {
+			message.warning('Đơn chưa đủ điều kiện thanh toán');
+			return;
+		}
+		setCashReceived(Number(orderSummary.final_amount || 0));
+		setCodModalOpen(true);
+	};
+
+	const handleCompleteCodPayment = async () => {
 		if (!transactionId) {
 			message.warning('Vui lòng tạo transaction trước');
 			return;
 		}
 
+		const amount = Math.round(Number(cashReceived || 0));
+		if (!amount || amount <= 0) {
+			message.warning('Vui lòng nhập tiền khách đưa hợp lệ');
+			return;
+		}
+
 		setTransactionLoading(true);
 		try {
-			await posService.completeCashPayment(transactionId);
+			const response = await posService.completeCodPayment(transactionId, {
+				cash_received: amount,
+			});
+			const changeAmount = Number(response?.data?.change_amount || 0);
+			setCodModalOpen(false);
 			resetToMainScreen();
-			message.success('Đã hoàn thành đơn tiền mặt (đã thanh toán)');
+			message.success(`Thanh toán COD thành công. Tiền thối: ${formatCurrency(changeAmount)}`);
 		} catch (error) {
-			message.error(error.message || 'Không thể hoàn thành đơn tiền mặt');
+			message.error(error.message || 'Không thể hoàn thành đơn COD');
 		} finally {
 			setTransactionLoading(false);
 		}
@@ -349,12 +381,129 @@ function SellerPOS() {
 		}
 	};
 
+	const openReceiptPrintWindow = useCallback((receipt) => {
+		if (typeof window === 'undefined') return;
+		const receiptWindow = window.open('', '_blank', 'width=860,height=720');
+		if (!receiptWindow) {
+			message.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+			return;
+		}
+
+		const issuedAt = new Date(receipt.issued_at || Date.now()).toLocaleString('vi-VN');
+		const itemRowsHtml = (receipt.items || [])
+			.map(
+				(item) => `
+				<tr>
+					<td>${item.product_name}${item.unit_name ? ` (${item.unit_name})` : ''}</td>
+					<td style="text-align:center">${item.quantity || 0}</td>
+					<td style="text-align:right">${formatCurrency(item.unit_price || 0)}</td>
+					<td style="text-align:right">${formatCurrency(item.line_total || 0)}</td>
+				</tr>
+			`,
+			)
+			.join('');
+
+		receiptWindow.document.write(`
+			<!doctype html>
+			<html>
+				<head>
+					<meta charset="utf-8" />
+					<title>Receipt ${receipt.order_code || ''}</title>
+					<style>
+						body { font-family: Arial, sans-serif; padding: 24px; color: #1f1f1f; }
+						h1 { margin: 0 0 8px; }
+						.meta { margin-bottom: 16px; }
+						.meta p { margin: 4px 0; }
+						table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+						th, td { border: 1px solid #d9d9d9; padding: 8px; font-size: 14px; }
+						th { background: #fafafa; text-align: left; }
+						.summary { margin-top: 16px; text-align: right; }
+						.summary p { margin: 4px 0; }
+						.total { font-size: 20px; font-weight: bold; }
+					</style>
+				</head>
+				<body>
+					<h1>SMart POS Receipt</h1>
+					<div class="meta">
+						<p><strong>Mã đơn:</strong> ${receipt.order_code || '-'}</p>
+						<p><strong>Thời gian:</strong> ${issuedAt}</p>
+						<p><strong>Thu ngân:</strong> ${receipt.staff_name || '-'}</p>
+						<p><strong>Phương thức thanh toán:</strong> ${receipt.payment_method || '-'}</p>
+						<p><strong>Trạng thái:</strong> ${receipt.payment_status || '-'}</p>
+					</div>
+					<table>
+						<thead>
+							<tr>
+								<th>Sản phẩm</th>
+								<th style="text-align:center">SL</th>
+								<th style="text-align:right">Đơn giá</th>
+								<th style="text-align:right">Thành tiền</th>
+							</tr>
+						</thead>
+						<tbody>${itemRowsHtml}</tbody>
+					</table>
+					<div class="summary">
+						<p>Tạm tính: <strong>${formatCurrency(receipt.subtotal || 0)}</strong></p>
+						<p>Thuế: <strong>${formatCurrency(receipt.tax_amount || 0)}</strong></p>
+						<p>Giảm giá: <strong>${formatCurrency(receipt.discount_amount || 0)}</strong></p>
+						<p class="total">Tổng thanh toán: ${formatCurrency(receipt.final_amount || 0)}</p>
+					</div>
+				</body>
+			</html>
+		`);
+		receiptWindow.document.close();
+		receiptWindow.focus();
+		receiptWindow.print();
+	}, []);
+
+	const handleIssueReceipt = async (mode = 'print') => {
+		if (!transactionId) {
+			message.warning('Vui lòng tạo transaction trước');
+			return;
+		}
+		setIssuingReceipt(true);
+		try {
+			const email = receiptEmail.trim();
+			if ((mode === 'email' || mode === 'both') && !email) {
+				message.warning('Vui lòng nhập email để gửi biên lai');
+				return;
+			}
+			const response = await posService.issueReceipt(transactionId, {
+				email: mode === 'email' || mode === 'both' ? email : '',
+			});
+			const receipt = response?.data;
+			if (mode === 'print' || mode === 'both') {
+				openReceiptPrintWindow(receipt);
+			}
+			setReceiptModalOpen(false);
+			setReceiptEmail('');
+			if (mode === 'both') {
+				message.success('Đã in và gửi email biên lai thành công');
+			} else if (mode === 'email') {
+				message.success('Đã gửi email biên lai thành công');
+			} else {
+				message.success('Đã tạo biên lai để in');
+			}
+		} catch (error) {
+			message.error(error.message || 'Không thể xuất biên lai');
+		} finally {
+			setIssuingReceipt(false);
+		}
+	};
+
 	const orderSummary = useMemo(() => transaction?.order || {}, [transaction]);
 	const canCompleteCash =
 		Boolean(transaction?.items?.length) &&
 		Number(orderSummary.final_amount || 0) > 0 &&
 		orderSummary.payment_status !== 'paid' &&
 		orderSummary.payment_method !== 'payos';
+	const canIssueReceipt = Boolean(transaction?.items?.length);
+	const codChangeAmount = Math.max(
+		0,
+		Math.round(Number(cashReceived || 0) - Number(orderSummary.final_amount || 0)),
+	);
+	const isCodAmountValid =
+		Math.round(Number(cashReceived || 0)) >= Math.round(Number(orderSummary.final_amount || 0));
 
 	const cartColumns = [
 		{
@@ -637,26 +786,21 @@ function SellerPOS() {
 												valueStyle={{ color: '#f5741f', fontWeight: 800, fontSize: 36 }}
 											/>
 											<Space wrap>
+												<Button icon={<PrinterOutlined />} onClick={() => setReceiptModalOpen(true)} disabled={!canIssueReceipt}>
+													Issue Receipt
+												</Button>
 												<Button type="primary" icon={<QrcodeOutlined />} onClick={handlePayWithPayOS}>
 													Thanh toán PayOS
 												</Button>
-												<Popconfirm
-													title="Xác nhận hoàn thành"
-													description="Đơn tiền mặt sẽ được đánh dấu đã thanh toán và hoàn thành."
-													onConfirm={handleCompleteCashPayment}
-													okText="Xác nhận"
-													cancelText="Hủy"
+												<Button
+													type="primary"
+													icon={<CheckCircleOutlined />}
+													onClick={handleOpenCodModal}
 													disabled={!canCompleteCash}
+													style={{ background: '#1677ff', borderColor: '#1677ff' }}
 												>
-													<Button
-														type="primary"
-														icon={<CheckCircleOutlined />}
-														disabled={!canCompleteCash}
-														style={{ background: '#52c41a', borderColor: '#52c41a' }}
-													>
-														Hoàn Thành
-													</Button>
-												</Popconfirm>
+													Pay by COD
+												</Button>
 											</Space>
 										</Space>
 									</Card>
@@ -685,6 +829,77 @@ function SellerPOS() {
 						>
 							Tiếp tục thanh toán PayOS
 						</Button>
+					)}
+				</Space>
+			</Modal>
+
+			<Modal
+				title="Issue Receipt"
+				open={receiptModalOpen}
+				onCancel={() => setReceiptModalOpen(false)}
+				footer={null}
+			>
+				<Space direction="vertical" style={{ width: '100%' }} size="middle">
+					<Text type="secondary">
+						In biên lai ngay trên máy POS hoặc gửi email biên lai cho khách. Biên lai bao gồm transaction details, items, taxes và discounts.
+					</Text>
+					<div>
+						<Text>Email nhận biên lai (khi gửi mail)</Text>
+						<Input
+							value={receiptEmail}
+							onChange={(e) => setReceiptEmail(e.target.value)}
+							placeholder="example@gmail.com"
+							allowClear
+							style={{ marginTop: 8 }}
+						/>
+					</div>
+					<Space wrap>
+						<Button icon={<PrinterOutlined />} loading={issuingReceipt} onClick={() => handleIssueReceipt('print')}>
+							Print Receipt
+						</Button>
+						<Button
+							type="primary"
+							icon={<MailOutlined />}
+							loading={issuingReceipt}
+							onClick={() => handleIssueReceipt('email')}
+						>
+							Email Receipt
+						</Button>
+						<Button loading={issuingReceipt} onClick={() => handleIssueReceipt('both')}>
+							Print + Email
+						</Button>
+					</Space>
+				</Space>
+			</Modal>
+
+			<Modal
+				title="Pay by COD"
+				open={codModalOpen}
+				onCancel={() => setCodModalOpen(false)}
+				onOk={handleCompleteCodPayment}
+				okText="Xác nhận thanh toán"
+				cancelText="Hủy"
+				okButtonProps={{ disabled: !isCodAmountValid || transactionLoading, loading: transactionLoading }}
+			>
+				<Space direction="vertical" style={{ width: '100%' }} size="middle">
+					<Statistic
+						title="Tổng thanh toán"
+						value={orderSummary.final_amount || 0}
+						formatter={(value) => formatCurrency(value)}
+					/>
+					<div>
+						<Text>Tiền khách đưa</Text>
+						<InputNumber
+							style={{ width: '100%', marginTop: 8 }}
+							min={0}
+							value={cashReceived}
+							onChange={(value) => setCashReceived(value)}
+							placeholder="Nhập số tiền khách đưa"
+						/>
+					</div>
+					<Statistic title="Tiền thối lại" value={codChangeAmount} formatter={(value) => formatCurrency(value)} />
+					{!isCodAmountValid && (
+						<Text type="danger">Tiền khách đưa phải lớn hơn hoặc bằng tổng thanh toán.</Text>
 					)}
 				</Space>
 			</Modal>
