@@ -1183,7 +1183,31 @@ function SellerPOS() {
 																		<Text ellipsis>Barcode: {item.barcode || 'N/A'}</Text>
 																	</div>
 																	<div style={{ border: ITEM_FIELD_BORDER, borderRadius: 4, padding: '2px 8px' }}>
-																		<Text>Giá: {formatCurrency(item.price)}</Text>
+																		{(() => {
+																			const originalPrice = Number(
+																				item.price_original ?? item.price_after_discount ?? item.price ?? 0,
+																			);
+																			const discountedPrice = Number(item.price_after_discount ?? item.price ?? originalPrice);
+																			const hasDiscount = discountedPrice < originalPrice;
+
+																			return (
+																		<Text>
+																			Giá:{' '}
+																			<Text strong style={{ color: '#cf1322' }}>
+																				{formatCurrency(discountedPrice)}
+																			</Text>{' '}
+																			{hasDiscount && (
+																				<>
+																					(
+																					<Text delete type="secondary">
+																						{formatCurrency(originalPrice)}
+																					</Text>
+																					)
+																				</>
+																			)}
+																		</Text>
+																			);
+																		})()}
 																	</div>
 																	<div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
 																		<div style={{ border: ITEM_FIELD_BORDER, borderRadius: 4, padding: '2px 8px', minWidth: 104 }}>
