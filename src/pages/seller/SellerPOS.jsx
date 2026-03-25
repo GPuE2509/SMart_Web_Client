@@ -48,6 +48,21 @@ const ITEM_FIELD_BORDER = '1px solid #d9d9d9';
 const formatCurrency = (value) =>
 	Number(value || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
 
+const formatCouponExpiry = (dateValue) => {
+	if (!dateValue) return 'Không giới hạn';
+	const parsedDate = new Date(dateValue);
+	if (Number.isNaN(parsedDate.getTime())) return 'Không xác định';
+	return parsedDate.toLocaleDateString('vi-VN');
+};
+
+const getCouponTypeLabel = (coupon) => {
+	if (!coupon) return 'Không xác định';
+	if (coupon.discount_type === 'percent') {
+		return `Phần trăm (${Number(coupon.discount_value || 0)}%)`;
+	}
+	return `Giảm tiền (${formatCurrency(coupon.discount_value || 0)})`;
+};
+
 const getStockLevel = (stock) => {
 	if (stock <= 5) return { label: 'Sắp hết hàng', color: 'red', value: 'low' };
 	if (stock <= 20) return { label: 'Tồn kho vừa', color: 'orange', value: 'medium' };
@@ -90,6 +105,8 @@ function SellerPOS() {
 		redeemable_coupons: [],
 	});
 	const [selectedCouponCode, setSelectedCouponCode] = useState('');
+	const [redeemCouponSearchKeyword, setRedeemCouponSearchKeyword] = useState('');
+	const [redeemCouponApplicableFilter, setRedeemCouponApplicableFilter] = useState('all');
 	const [openTransactions, setOpenTransactions] = useState([]);
 	const [openTransactionsLoading, setOpenTransactionsLoading] = useState(false);
 
@@ -191,6 +208,8 @@ function SellerPOS() {
 		setCouponLoading(false);
 		setCustomerCoupons({ wallet_coupons: [], redeemable_coupons: [] });
 		setSelectedCouponCode('');
+		setRedeemCouponSearchKeyword('');
+		setRedeemCouponApplicableFilter('all');
 		setPagination((prev) => ({ ...prev, page: 1 }));
 		fetchOpenTransactions();
 		navigate('/seller/pos', { replace: true });
@@ -784,6 +803,33 @@ function SellerPOS() {
 	const walletCoupons = customerCoupons.wallet_coupons || [];
 	const redeemableCoupons = customerCoupons.redeemable_coupons || [];
 	const redeemableCouponsAvailable = redeemableCoupons.filter((item) => item?.can_redeem);
+	const selectedWalletCoupon = useMemo(
+		() => walletCoupons.find((item) => item?.coupon?.code === selectedCouponCode),
+		[walletCoupons, selectedCouponCode],
+	);
+	const filteredRedeemableCoupons = useMemo(() => {
+		const normalizedKeyword = redeemCouponSearchKeyword.trim().toLowerCase();
+
+		return redeemableCouponsAvailable.filter((item) => {
+			if (!item?.coupon) return false;
+
+			const coupon = item.coupon;
+			const typeText = getCouponTypeLabel(coupon).toLowerCase();
+			const expiryText = formatCouponExpiry(coupon.end_date).toLowerCase();
+			const codeText = String(coupon.code || '').toLowerCase();
+			const searchableText = `${codeText} ${typeText} ${expiryText}`;
+
+			const matchesKeyword = normalizedKeyword ? searchableText.includes(normalizedKeyword) : true;
+			const matchesApplicable =
+				redeemCouponApplicableFilter === 'all'
+					? true
+					: redeemCouponApplicableFilter === 'applicable'
+						? Boolean(item.can_apply_after_redeem)
+						: !item.can_apply_after_redeem;
+
+			return matchesKeyword && matchesApplicable;
+		});
+	}, [redeemableCouponsAvailable, redeemCouponSearchKeyword, redeemCouponApplicableFilter]);
 	const canCompleteCash =
 		Boolean(transaction?.items?.length) &&
 		Number(orderSummary.final_amount || 0) > 0 &&
@@ -796,6 +842,9 @@ function SellerPOS() {
 	);
 	const isCodAmountValid =
 		Math.round(Number(cashReceived || 0)) >= Math.round(Number(orderSummary.final_amount || 0));
+	const selectedCouponMinOrderValue = Number(selectedWalletCoupon?.coupon?.min_order_value || 0);
+	const currentOrderAmount = Number(orderSummary.total_amount || 0);
+	const selectedCouponMissingAmount = Math.max(0, selectedCouponMinOrderValue - currentOrderAmount);
 
 	const cartColumns = [
 		{
@@ -1032,12 +1081,33 @@ function SellerPOS() {
 													onChange={(value) => setSelectedCouponCode(value || '')}
 													style={{ width: '100%' }}
 													allowClear
+													showSearch
+													optionFilterProp="label"
+													filterOption={(input, option) =>
+														String(option?.label || '')
+															.toLowerCase()
+															.includes(String(input || '').toLowerCase())
+													}
 													options={walletCoupons.map((item) => ({
-														label: `${item.coupon?.code || 'N/A'}${item.can_apply ? '' : ' - Chưa áp dụng được'}`,
+														label: `${item.coupon?.code || 'N/A'} | ${getCouponTypeLabel(item.coupon)} | HSD: ${formatCouponExpiry(item.coupon?.end_date)} | Tối thiểu: ${formatCurrency(item.coupon?.min_order_value || 0)}${item.can_apply ? '' : ' - Chưa áp dụng được'}`,
 														value: item.coupon?.code,
 														disabled: !item.can_apply,
 													}))}
 												/>
+												{selectedWalletCoupon && (
+													<Space direction="vertical" size={2} style={{ marginTop: 6 }}>
+														<Text type="secondary">
+															Giá trị tối thiểu để áp mã: <Text strong>{formatCurrency(selectedCouponMinOrderValue)}</Text>
+														</Text>
+														{selectedCouponMissingAmount > 0 ? (
+															<Text type="danger">
+																Cần mua thêm {formatCurrency(selectedCouponMissingAmount)} để đủ điều kiện áp mã.
+															</Text>
+														) : (
+															<Text type="success">Đơn hàng hiện tại đã đủ điều kiện tối thiểu để áp mã.</Text>
+														)}
+													</Space>
+												)}
 											</Col>
 											<Col xs={24} lg={10}>
 												<Space wrap>
@@ -1053,17 +1123,48 @@ function SellerPOS() {
 
 										<Space direction="vertical" style={{ width: '100%', marginTop: 10 }} size={4}>
 											<Text type="secondary">Coupon khách hàng đủ điểm để đổi</Text>
+											<Row gutter={[12, 12]}>
+												<Col xs={24} lg={14}>
+													<Input
+														placeholder="Search coupons by code, type, or expiry"
+														prefix={<SearchOutlined />}
+														value={redeemCouponSearchKeyword}
+														onChange={(e) => setRedeemCouponSearchKeyword(e.target.value)}
+														allowClear
+													/>
+												</Col>
+												<Col xs={24} lg={10}>
+													<Select
+														value={redeemCouponApplicableFilter}
+														onChange={(value) => setRedeemCouponApplicableFilter(value)}
+														style={{ width: '100%' }}
+														options={[
+															{ label: 'Filter by applicable products: Tất cả', value: 'all' },
+															{ label: 'Filter by applicable products: Áp dụng được', value: 'applicable' },
+															{ label: 'Filter by applicable products: Chưa áp dụng được', value: 'not_applicable' },
+														]}
+													/>
+												</Col>
+											</Row>
 											<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
 												{redeemableCouponsAvailable.length === 0 && <Text type="secondary">Khách hàng chưa đủ điểm để đổi coupon nào</Text>}
-												{redeemableCouponsAvailable.map((item) => (
+												{redeemableCouponsAvailable.length > 0 && filteredRedeemableCoupons.length === 0 && (
+													<Text type="secondary">Không có coupon phù hợp với điều kiện tìm kiếm/lọc</Text>
+												)}
+												{filteredRedeemableCoupons.map((item) => (
 													<Space
 														key={item.coupon?._id}
 														size={6}
 														style={{ border: ITEM_FIELD_BORDER, borderRadius: 8, padding: '4px 8px' }}
 													>
 														<Tag color="blue">
-															{item.coupon?.code} - cần {(item.coupon?.points_required || 0).toLocaleString('vi-VN')} điểm
+															{item.coupon?.code} - cần {(item.coupon?.points_required || 0).toLocaleString('vi-VN')} điểm - HSD {formatCouponExpiry(item.coupon?.end_date)}
 														</Tag>
+														{!item.can_apply_after_redeem && (
+															<Text type="danger" style={{ fontSize: 12 }}>
+																Chưa đủ giá trị đơn tối thiểu: {formatCurrency(item.coupon?.min_order_value || 0)}
+															</Text>
+														)}
 														<Button
 															type="link"
 															disabled={couponLoading}
